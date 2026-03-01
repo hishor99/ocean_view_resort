@@ -7,17 +7,18 @@ public class Vehicle {
     private String plateNo;
     private double pricePerDay;
     private int capacity;
-    private boolean active;
+    private int isActive;
     private String notes;
 
-    public Vehicle(int vehicleId, String type, String model, String plateNo, double pricePerDay, int capacity, boolean active, String notes) {
+    public Vehicle(int vehicleId, String type, String model, String plateNo,
+                   double pricePerDay, int capacity, int isActive, String notes) {
         this.vehicleId = vehicleId;
         this.type = type;
         this.model = model;
         this.plateNo = plateNo;
         this.pricePerDay = pricePerDay;
         this.capacity = capacity;
-        this.active = active;
+        this.isActive = isActive;
         this.notes = notes;
     }
 
@@ -27,6 +28,6 @@ public class Vehicle {
     public String getPlateNo() { return plateNo; }
     public double getPricePerDay() { return pricePerDay; }
     public int getCapacity() { return capacity; }
-    public boolean isActive() { return active; }
+    public int getIsActive() { return isActive; }
     public String getNotes() { return notes; }
 }

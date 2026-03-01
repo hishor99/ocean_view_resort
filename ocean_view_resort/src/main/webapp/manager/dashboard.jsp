@@ -79,7 +79,6 @@
     <div class="dash-actions">
       <a class="btn primary" href="<%= request.getContextPath() %>/manager/reports">View Reports</a>
       <a class="btn" href="<%= request.getContextPath() %>/manager/add-staff">+ Add Staff</a>
-      <a class="btn" href="<%= request.getContextPath() %>/manager/add-room">+ Add Room</a>
     </div>
   </div>
 
@@ -122,14 +121,7 @@
       <a href="<%= request.getContextPath() %>/manager/vehicles">Manage Vehicles</a>
     </div>
 
-    <div class="tile">
-      <div class="tile-top">
-        <h3>Add Rooms</h3>
-        <span class="badge">Setup</span>
-      </div>
-      <p>Create new room entries and set default settings.</p>
-      <a href="<%= request.getContextPath() %>/manager/add-room">Add New Room</a>
-    </div>
+    
 
     <div class="tile">
       <div class="tile-top">

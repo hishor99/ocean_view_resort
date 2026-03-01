@@ -1,51 +1,60 @@
 package controller;
 
 import java.io.IOException;
-
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.*;
 
-@WebFilter(urlPatterns = {
-        "/customer/*",
-        "/staff/*",
-        "/manager/*"
-})
+@WebFilter(urlPatterns = {"/customer/*", "/staff/*", "/manager/*"})
 public class AuthFilter implements Filter {
 
     @Override
-    public void doFilter(ServletRequest request, ServletResponse response,
-                         FilterChain chain)
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
 
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse res = (HttpServletResponse) response;
 
         HttpSession session = req.getSession(false);
-
-        if (session == null || session.getAttribute("user_id") == null) {
-            res.sendRedirect(req.getContextPath() + "/auth/login.jsp");
-            return;
-        }
-
-        String role = (String) session.getAttribute("role");
+        String ctx = req.getContextPath();
         String path = req.getRequestURI();
 
-        // Role-based protection
-        if (path.contains("/customer/") && !role.equals("CUSTOMER")) {
-            res.sendRedirect(req.getContextPath() + "/auth/login.jsp");
+        // ✅ Allow assets even if under these paths (optional)
+        if (path.startsWith(ctx + "/assets/")) {
+            chain.doFilter(request, response);
             return;
         }
 
-        if (path.contains("/staff/") && !role.equals("RECEPTION")) {
-            res.sendRedirect(req.getContextPath() + "/auth/login.jsp");
+        Integer userId = (session == null) ? null : (Integer) session.getAttribute("user_id");
+        String role = (session == null) ? null : (String) session.getAttribute("role");
+
+        // ✅ Not logged in
+        if (userId == null || role == null) {
+            res.sendRedirect(ctx + "/auth/login.jsp");
             return;
         }
 
-        if (path.contains("/manager/") && !role.equals("MANAGER")) {
-            res.sendRedirect(req.getContextPath() + "/auth/login.jsp");
+        // ✅ Normalize role
+        String r = role.trim().toUpperCase();
+
+        // ✅ CUSTOMER access
+        if (path.contains("/customer/") && !r.equals("CUSTOMER")) {
+            res.sendRedirect(ctx + "/auth/login.jsp");
+            return;
+        }
+
+        // ✅ STAFF access (accept common names)
+        if (path.contains("/staff/")) {
+            boolean staffOk = r.equals("RECEPTION") || r.equals("STAFF") || r.equals("RECEPTION_STAFF");
+            if (!staffOk) {
+                res.sendRedirect(ctx + "/auth/login.jsp");
+                return;
+            }
+        }
+
+        // ✅ MANAGER access
+        if (path.contains("/manager/") && !r.equals("MANAGER")) {
+            res.sendRedirect(ctx + "/auth/login.jsp");
             return;
         }
 
