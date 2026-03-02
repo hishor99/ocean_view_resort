@@ -1,160 +1,166 @@
 package controller.staff;
 
+import dao.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
+import model.Room;
+import model.FoodPackage;
+import model.Vehicle;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
-
-import dao.RoomDAO;
-import dao.ReservationDAO;
-import model.Room;
 
 @WebServlet("/staff/add-reservation")
 public class AddReservationServlet extends HttpServlet {
 
-    private final RoomDAO roomDAO = new RoomDAO();
     private final ReservationDAO reservationDAO = new ReservationDAO();
+    private final RoomDAO roomDAO = new RoomDAO();
+    private final FoodPackageDAO foodDAO = new FoodPackageDAO();
+    private final VehicleDAO vehicleDAO = new VehicleDAO();
 
-    private Integer intOrNull(String v) {
-        if (v == null || v.isBlank()) return null;
-        return Integer.parseInt(v.trim());
-    }
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
 
-    private Double doubleOrZero(String v) {
-        if (v == null || v.isBlank()) return 0.0;
-        return Double.parseDouble(v.trim());
-    }
-
-    private void ensureLoggedIn(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("user_id") == null) {
-            response.sendRedirect(request.getContextPath() + "/auth/login.jsp");
-        }
-    }
-
-    private boolean isLoggedIn(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        return session != null && session.getAttribute("user_id") != null;
+        req.getRequestDispatcher("/staff/add-reservation.jsp").forward(req, resp);
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // login check
-        if (!isLoggedIn(request)) {
-            response.sendRedirect(request.getContextPath() + "/auth/login.jsp");
+        HttpSession session = req.getSession(false);
+
+        Integer staffId = (session == null) ? null : (Integer) session.getAttribute("user_id");
+        String role = (session == null) ? null : (String) session.getAttribute("role");
+
+        String r = (role == null) ? "" : role.trim().toUpperCase();
+        boolean staffOk = "STAFF".equals(r) || "RECEPTION".equals(r) || "RECEPTION_STAFF".equals(r);
+
+        if (staffId == null || !staffOk) {
+            resp.sendRedirect(req.getContextPath() + "/auth/login.jsp");
             return;
         }
 
-        try {
-            // show AVAILABLE rooms
-            List<Room> rooms = roomDAO.getAvailableRooms();
-            request.setAttribute("rooms", rooms);
-
-            request.getRequestDispatcher("/staff/add-reservation.jsp").forward(request, response);
-
-        } catch (Exception e) {
-            throw new ServletException("Failed to load available rooms", e);
-        }
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-
-        // login check
-        if (!isLoggedIn(request)) {
-            response.sendRedirect(request.getContextPath() + "/auth/login.jsp");
-            return;
-        }
+        String step = safe(req.getParameter("step"));
 
         try {
-            // Decide which flow based on customerId presence
-            String customerIdStr = request.getParameter("customerId");
 
-            // Common fields
-            int roomId = Integer.parseInt(request.getParameter("roomId"));
-            LocalDate checkIn = LocalDate.parse(request.getParameter("checkIn"));
-            LocalDate checkOut = LocalDate.parse(request.getParameter("checkOut"));
-            int guests = Integer.parseInt(request.getParameter("guests"));
+            // =========================
+            // STEP 1: Check available rooms
+            // =========================
+            if ("checkRooms".equals(step)) {
 
-            if (!checkOut.isAfter(checkIn)) {
-                throw new IllegalArgumentException("Check-out must be after check-in.");
-            }
+                String fullName = safe(req.getParameter("full_name"));
+                String address  = safe(req.getParameter("address"));
+                String phone    = safe(req.getParameter("phone"));
+                String email    = safe(req.getParameter("email"));
 
-            // If nights not provided, compute it safely
-            Integer nightsParam = intOrNull(request.getParameter("nights"));
-            int nights = (nightsParam != null) ? nightsParam : (int) ChronoUnit.DAYS.between(checkIn, checkOut);
+                String inStr  = safe(req.getParameter("check_in"));
+                String outStr = safe(req.getParameter("check_out"));
+                String gStr   = safe(req.getParameter("guests"));
 
-            int reservationId;
+                if (fullName.isEmpty()) throw new Exception("Guest name is required.");
+                if (phone.isEmpty()) throw new Exception("Contact number is required.");
+                if (inStr.isEmpty() || outStr.isEmpty()) throw new Exception("Check-in and check-out dates are required.");
+                if (gStr.isEmpty()) throw new Exception("Guests is required.");
 
-            // ===== FLOW 1: Existing customer reservation (with totals & optional add-ons) =====
-            if (customerIdStr != null && !customerIdStr.isBlank()) {
+                LocalDate checkIn = LocalDate.parse(inStr);
+                LocalDate checkOut = LocalDate.parse(outStr);
 
-                int customerId = Integer.parseInt(customerIdStr.trim());
+                int guests = Integer.parseInt(gStr);
+                if (guests <= 0) throw new Exception("Guests must be at least 1.");
+                if (!checkOut.isAfter(checkIn)) throw new Exception("Check-out must be after check-in.");
 
-                Integer foodId = intOrNull(request.getParameter("foodId"));
-                Integer vehicleId = intOrNull(request.getParameter("vehicleId"));
+                HttpSession s = req.getSession(true);
+                s.setAttribute("tmp_full_name", fullName);
+                s.setAttribute("tmp_address", address);
+                s.setAttribute("tmp_phone", phone);
+                s.setAttribute("tmp_email", email);
+                s.setAttribute("tmp_check_in", checkIn);
+                s.setAttribute("tmp_check_out", checkOut);
+                s.setAttribute("tmp_guests", guests);
 
-                double roomTotal = doubleOrZero(request.getParameter("roomTotal"));
-                double foodTotal = doubleOrZero(request.getParameter("foodTotal"));
-                double vehicleTotal = doubleOrZero(request.getParameter("vehicleTotal"));
-                double grandTotal = doubleOrZero(request.getParameter("grandTotal"));
+                List<Room> rooms = roomDAO.findAvailableRooms(checkIn, checkOut, guests);
+                List<FoodPackage> foodPackages = foodDAO.getActivePackages();
+                List<Vehicle> vehicles = vehicleDAO.getActiveVehicles();
 
-                reservationId = reservationDAO.createReservation(
-                        customerId, roomId,
-                        checkIn, checkOut,
-                        nights, guests,
-                        foodId, vehicleId,
-                        roomTotal, foodTotal,
-                        vehicleTotal, grandTotal
-                );
+                req.setAttribute("rooms", rooms);
+                req.setAttribute("foodPackages", foodPackages);
+                req.setAttribute("vehicles", vehicles);
 
-                request.setAttribute("success", "Reservation created successfully! ID: " + reservationId);
-
-                // reload rooms for UI
-                try {
-                    List<Room> rooms = roomDAO.getAvailableRooms();
-                    request.setAttribute("rooms", rooms);
-                } catch (Exception ignore) {}
-
-                request.getRequestDispatcher("/staff/add-reservation.jsp").forward(request, response);
+                req.getRequestDispatcher("/staff/select-room.jsp").forward(req, resp);
                 return;
             }
 
-            // ===== FLOW 2: Walk-in reservation (guest details) =====
-            String guestName = request.getParameter("guestName");
-            String guestAddress = request.getParameter("guestAddress");
-            String guestPhone = request.getParameter("guestPhone");
-            String guestEmail = request.getParameter("guestEmail");
+            // =========================
+            // STEP 2: Create reservation
+            // =========================
+            if ("createReservation".equals(step)) {
 
-            // Basic validation (you can relax if you want)
-            if (guestName == null || guestName.isBlank()) {
-                throw new IllegalArgumentException("Guest name is required for walk-in reservations.");
+                HttpSession s = req.getSession(false);
+                if (s == null) {
+                    resp.sendRedirect(req.getContextPath() + "/staff/add-reservation");
+                    return;
+                }
+
+                String fullName = (String) s.getAttribute("tmp_full_name");
+                String address  = (String) s.getAttribute("tmp_address");
+                String phone    = (String) s.getAttribute("tmp_phone");
+                String email    = (String) s.getAttribute("tmp_email");
+
+                LocalDate checkIn  = (LocalDate) s.getAttribute("tmp_check_in");
+                LocalDate checkOut = (LocalDate) s.getAttribute("tmp_check_out");
+                Integer guests     = (Integer) s.getAttribute("tmp_guests");
+
+                String roomIdStr = safe(req.getParameter("room_id"));
+                if (roomIdStr.isEmpty()) throw new Exception("Please select a room.");
+
+                int roomId = Integer.parseInt(roomIdStr);
+
+                // NEW ADD-ONS
+                String foodIdStr = safe(req.getParameter("food_id"));
+                String vehicleIdStr = safe(req.getParameter("vehicle_id"));
+
+                Integer foodId = foodIdStr.isEmpty() ? null : Integer.parseInt(foodIdStr);
+                Integer vehicleId = vehicleIdStr.isEmpty() ? null : Integer.parseInt(vehicleIdStr);
+
+                int reservationId = reservationDAO.createWalkInReservation(
+                        staffId,
+                        fullName, address, phone, email,
+                        roomId, checkIn, checkOut,
+                        guests,
+                        foodId, vehicleId
+                );
+
+                clearTmp(s);
+
+                resp.sendRedirect(req.getContextPath() +
+                        "/staff/reservation-invoice?reservationId=" + reservationId);
+                return;
             }
 
-            reservationId = reservationDAO.createWalkInReservation(
-                    guestName, guestAddress, guestPhone, guestEmail,
-                    roomId, checkIn, checkOut, guests
-            );
+            resp.sendRedirect(req.getContextPath() + "/staff/add-reservation");
 
-            // Go to Step 2 (optional add-ons)
-            response.sendRedirect(request.getContextPath() + "/staff/add-ons?rid=" + reservationId);
-
-        } catch (Exception e) {
-            // reload rooms for UI
-            try {
-                List<Room> rooms = roomDAO.getAvailableRooms();
-                request.setAttribute("rooms", rooms);
-            } catch (Exception ignore) {}
-
-            request.setAttribute("error", "Create failed: " + e.getMessage());
-            request.getRequestDispatcher("/staff/add-reservation.jsp").forward(request, response);
+        } catch (Exception ex) {
+            req.setAttribute("error", ex.getMessage());
+            req.getRequestDispatcher("/staff/add-reservation.jsp").forward(req, resp);
         }
+    }
+
+    private String safe(String v) {
+        return (v == null) ? "" : v.trim();
+    }
+
+    private void clearTmp(HttpSession session) {
+        session.removeAttribute("tmp_full_name");
+        session.removeAttribute("tmp_address");
+        session.removeAttribute("tmp_phone");
+        session.removeAttribute("tmp_email");
+        session.removeAttribute("tmp_check_in");
+        session.removeAttribute("tmp_check_out");
+        session.removeAttribute("tmp_guests");
     }
 }

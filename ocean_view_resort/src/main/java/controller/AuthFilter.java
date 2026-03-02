@@ -15,45 +15,39 @@ public class AuthFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse res = (HttpServletResponse) response;
 
-        HttpSession session = req.getSession(false);
         String ctx = req.getContextPath();
-        String path = req.getRequestURI();
+        String uri = req.getRequestURI(); // includes context path
+        String path = uri.substring(ctx.length()); // starts with /customer/... etc.
 
-        // ✅ Allow assets even if under these paths (optional)
-        if (path.startsWith(ctx + "/assets/")) {
-            chain.doFilter(request, response);
-            return;
-        }
-
+        HttpSession session = req.getSession(false);
         Integer userId = (session == null) ? null : (Integer) session.getAttribute("user_id");
         String role = (session == null) ? null : (String) session.getAttribute("role");
 
-        // ✅ Not logged in
+        // not logged in
         if (userId == null || role == null) {
             res.sendRedirect(ctx + "/auth/login.jsp");
             return;
         }
 
-        // ✅ Normalize role
         String r = role.trim().toUpperCase();
 
-        // ✅ CUSTOMER access
-        if (path.contains("/customer/") && !r.equals("CUSTOMER")) {
+        // CUSTOMER
+        if (path.startsWith("/customer/") && !r.equals("CUSTOMER")) {
             res.sendRedirect(ctx + "/auth/login.jsp");
             return;
         }
 
-        // ✅ STAFF access (accept common names)
-        if (path.contains("/staff/")) {
-            boolean staffOk = r.equals("RECEPTION") || r.equals("STAFF") || r.equals("RECEPTION_STAFF");
+        // STAFF (accept common names)
+        if (path.startsWith("/staff/")) {
+            boolean staffOk = r.equals("STAFF") || r.equals("RECEPTION") || r.equals("RECEPTION_STAFF");
             if (!staffOk) {
                 res.sendRedirect(ctx + "/auth/login.jsp");
                 return;
             }
         }
 
-        // ✅ MANAGER access
-        if (path.contains("/manager/") && !r.equals("MANAGER")) {
+        // MANAGER
+        if (path.startsWith("/manager/") && !r.equals("MANAGER")) {
             res.sendRedirect(ctx + "/auth/login.jsp");
             return;
         }

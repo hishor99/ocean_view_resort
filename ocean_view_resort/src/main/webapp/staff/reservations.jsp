@@ -1,90 +1,107 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ page import="java.util.*" %>
-
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Pending Reservations</title>
-<link rel="stylesheet" href="<%= request.getContextPath() %>/assets/css/style.css">
-
-<style>
-  body{ background:#f5f7fb; }
-  .wrap{ max-width:1100px; margin:20px auto 70px; padding:0 16px; }
-  .card{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:16px; margin-bottom:14px; }
-  table{ width:100%; border-collapse:collapse; min-width:900px; }
-  th,td{ padding:12px; border-bottom:1px solid #e5e7eb; text-align:left; }
-  th{ background:#f8fafc; font-weight:900; }
-  .table-wrap{ overflow:auto; border:1px solid #e5e7eb; border-radius:14px; }
-  .btn{ background:#2563eb; color:#fff; border:none; padding:8px 12px; border-radius:10px; font-weight:900; cursor:pointer; }
-  .btn:hover{ background:#1d4ed8; }
-</style>
+  <title>Pending Reservations</title>
+  <link rel="stylesheet" href="<%= request.getContextPath() %>/assets/css/style.css">
 </head>
 <body>
 
+<jsp:include page="/includes/header.jsp" />
 <jsp:include page="/includes/navbar.jsp" />
 
-<div class="wrap">
+<div class="container">
 
   <div class="card">
-    <h2 style="margin:0;">Pending Reservations</h2>
-    <p style="margin:6px 0 0; color:#64748b;">
-      Confirm reservations to generate reservation number and mark room as <b>BOOKED</b>.
-    </p>
+    <h2>Pending Reservations</h2>
+
+    <% if (request.getAttribute("flash_success") != null) { %>
+      <div class="alert success"><%= request.getAttribute("flash_success") %></div>
+    <% } %>
+
+    <% if (request.getAttribute("flash_error") != null) { %>
+      <div class="alert error"><%= request.getAttribute("flash_error") %></div>
+    <% } %>
   </div>
 
-  <div class="card table-wrap">
-    <table>
+  <div class="card">
+    <%
+      List<Map<String,Object>> reservations =
+          (List<Map<String,Object>>) request.getAttribute("pending");
+
+      if (reservations == null || reservations.isEmpty()) {
+    %>
+      <p class="muted">No pending reservations found.</p>
+    <%
+      } else {
+    %>
+
+    <table class="table">
       <thead>
         <tr>
           <th>ID</th>
           <th>Room</th>
-          <th>Check-in</th>
-          <th>Check-out</th>
-          <th>Nights</th>
+          <th>Check-In</th>
+          <th>Check-Out</th>
           <th>Guests</th>
           <th>Total</th>
-          <th>Action</th>
+          <th style="width:260px;">Actions</th>
         </tr>
       </thead>
-
       <tbody>
       <%
-        List<Map<String,Object>> pending = (List<Map<String,Object>>) request.getAttribute("pending");
-        if (pending == null || pending.isEmpty()) {
+        for (Map<String,Object> r : reservations) {
       %>
         <tr>
-          <td colspan="8" style="color:#64748b; font-weight:800;">No pending reservations.</td>
-        </tr>
-      <%
-        } else {
-          for (Map<String,Object> r : pending) {
-      %>
-        <tr>
-          <td><%= r.get("reservationId") %></td>
-          <td><b><%= r.get("roomNumber") %></b> - <%= r.get("roomType") %></td>
+          <td>#<%= r.get("reservationId") %></td>
+          <td><b><%= r.get("roomNumber") %></b> (<%= r.get("roomType") %>)</td>
           <td><%= r.get("checkIn") %></td>
           <td><%= r.get("checkOut") %></td>
-          <td><%= r.get("nights") %></td>
           <td><%= r.get("guests") %></td>
           <td>Rs. <%= r.get("grandTotal") %></td>
           <td>
-            <!-- ✅ Correct URL + Correct param name -->
-            <form method="post" action="<%= request.getContextPath() %>/staff/confirm-reservation">
-  <input type="hidden" name="id" value="<%= r.get("reservationId") %>">
-  <button class="btn" type="submit">Confirm</button>
-</form>
+
+            <!-- Confirm -->
+            <form method="post"
+                  action="<%= request.getContextPath() %>/staff/confirm-reservation"
+                  class="inline">
+              <input type="hidden" name="id" value="<%= r.get("reservationId") %>">
+              <button class="btn success" type="submit">Confirm</button>
+            </form>
+
+            <!-- Cancel -->
+            <form method="post"
+                  action="<%= request.getContextPath() %>/staff/cancel-reservation"
+                  class="inline"
+                  onsubmit="return confirm('Cancel this reservation?');">
+              <input type="hidden" name="id" value="<%= r.get("reservationId") %>">
+              <input type="text" name="reason" placeholder="Reason" class="input-sm">
+              <button class="btn danger" type="submit">Cancel</button>
+            </form>
+
+            <!-- Print -->
+            <a class="btn"
+               target="_blank"
+               href="<%= request.getContextPath() %>/staff/reservation-invoice?id=<%= r.get("reservationId") %>">
+              Print
+            </a>
+
           </td>
         </tr>
       <%
-          }
         }
       %>
       </tbody>
     </table>
+
+    <%
+      }
+    %>
   </div>
 
 </div>
 
+<jsp:include page="/includes/footer.jsp" />
 </body>
 </html>

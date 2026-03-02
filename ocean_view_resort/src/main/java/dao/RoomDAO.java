@@ -1,6 +1,7 @@
 package dao;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,15 +9,22 @@ import model.Room;
 
 public class RoomDAO {
 
-    // ---------------------------
-    // Helpers
-    // ---------------------------
+    // Allowed DB statuses for rooms table
+    private static final String STATUS_AVAILABLE = "AVAILABLE";
+    private static final String STATUS_BOOKED = "BOOKED";
+    private static final String STATUS_MAINTENANCE = "MAINTENANCE";
+
     private String normalizeStatus(String status) {
-        if (status == null || status.isBlank()) return "AVAILABLE";
-        return status.trim().toUpperCase();
+        if (status == null || status.isBlank()) return STATUS_AVAILABLE;
+        String s = status.trim().toUpperCase();
+        if (!s.equals(STATUS_AVAILABLE) && !s.equals(STATUS_BOOKED) && !s.equals(STATUS_MAINTENANCE)) {
+            return STATUS_AVAILABLE;
+        }
+        return s;
     }
 
     private Room mapRoom(ResultSet rs) throws SQLException {
+        // If your Room model has different constructor, adjust accordingly
         return new Room(
                 rs.getInt("room_id"),
                 rs.getString("room_number"),
@@ -30,16 +38,17 @@ public class RoomDAO {
     // ---------------------------
     // Create
     // ---------------------------
-    // ✅ Add Room (Manager)
     public void addRoom(String roomNumber, String roomType,
                         double pricePerNight, int capacity, String status) throws Exception {
 
-        if (roomNumber == null || roomNumber.isBlank()) {
+        if (roomNumber == null || roomNumber.isBlank())
             throw new IllegalArgumentException("Room number is required");
-        }
-        if (roomType == null || roomType.isBlank()) {
+        if (roomType == null || roomType.isBlank())
             throw new IllegalArgumentException("Room type is required");
-        }
+        if (pricePerNight < 0)
+            throw new IllegalArgumentException("Price per night must be >= 0");
+        if (capacity <= 0)
+            throw new IllegalArgumentException("Capacity must be >= 1");
 
         String sql = "INSERT INTO rooms (room_number, room_type, price_per_night, capacity, status) " +
                      "VALUES (?, ?, ?, ?, ?)";
@@ -59,43 +68,74 @@ public class RoomDAO {
     // ---------------------------
     // Read
     // ---------------------------
-    // ✅ Get All Rooms (Manager & Staff)
     public List<Room> getAllRooms() throws Exception {
         String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, status " +
                      "FROM rooms ORDER BY room_id DESC";
 
         List<Room> list = new ArrayList<>();
-
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
-            while (rs.next()) {
-                list.add(mapRoom(rs));
-            }
+            while (rs.next()) list.add(mapRoom(rs));
         }
         return list;
     }
 
-    // ✅ Get Only Available Rooms (Customer)
+    // NOT date-aware (simple)
     public List<Room> getAvailableRooms() throws Exception {
         String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, status " +
                      "FROM rooms WHERE status='AVAILABLE' ORDER BY room_id DESC";
 
         List<Room> list = new ArrayList<>();
-
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
-            while (rs.next()) {
-                list.add(mapRoom(rs));
+            while (rs.next()) list.add(mapRoom(rs));
+        }
+        return list;
+    }
+
+    // ✅ Date-aware availability (Overlap rule)
+    // overlap if (existing.check_in < new.check_out) AND (existing.check_out > new.check_in)
+    public List<Room> findAvailableRooms(LocalDate checkIn, LocalDate checkOut, int guests) throws Exception {
+
+        if (checkIn == null || checkOut == null)
+            throw new IllegalArgumentException("Check-in and check-out dates are required");
+        if (!checkOut.isAfter(checkIn))
+            throw new IllegalArgumentException("Check-out must be after check-in");
+        if (guests <= 0)
+            throw new IllegalArgumentException("Guests must be >= 1");
+
+        String sql =
+                "SELECT r.room_id, r.room_number, r.room_type, r.price_per_night, r.capacity, r.status " +
+                "FROM rooms r " +
+                "WHERE r.status = 'AVAILABLE' " +
+                "  AND r.capacity >= ? " +
+                "  AND r.room_id NOT IN ( " +
+                "       SELECT res.room_id FROM reservations res " +
+                "       WHERE res.status IN ('PENDING','CONFIRMED','CHECKED_IN') " +
+                "         AND res.check_in < ? " +
+                "         AND res.check_out > ? " +
+                "  ) " +
+                "ORDER BY r.price_per_night ASC";
+
+        List<Room> list = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, guests);
+            ps.setDate(2, Date.valueOf(checkOut));
+            ps.setDate(3, Date.valueOf(checkIn));
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRoom(rs));
             }
         }
         return list;
     }
 
-    // ✅ Optional: find by ID
     public Room findById(int roomId) throws Exception {
         String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, status " +
                      "FROM rooms WHERE room_id=? LIMIT 1";
@@ -114,11 +154,8 @@ public class RoomDAO {
     // ---------------------------
     // Update
     // ---------------------------
-
-    // ✅ Update only status (Merged)
     public void updateStatus(int roomId, String status) throws Exception {
         String sql = "UPDATE rooms SET status=? WHERE room_id=?";
-
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
@@ -128,31 +165,17 @@ public class RoomDAO {
         }
     }
 
-    // ✅ Used by UpdateRoomServlet (price + status + capacity)
-    public void updatePriceAndStatus(int roomId, double pricePerNight, String status, int capacity) throws Exception {
-        String sql = "UPDATE rooms SET price_per_night = ?, status = ?, capacity = ? WHERE room_id = ?";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setDouble(1, pricePerNight);
-            ps.setString(2, normalizeStatus(status));
-            ps.setInt(3, capacity);
-            ps.setInt(4, roomId);
-            ps.executeUpdate();
-        }
-    }
-
-    // ✅ Optional full update
     public void updateRoom(int roomId, String roomNumber, String roomType,
                            double pricePerNight, int capacity, String status) throws Exception {
 
-        if (roomNumber == null || roomNumber.isBlank()) {
+        if (roomNumber == null || roomNumber.isBlank())
             throw new IllegalArgumentException("Room number is required");
-        }
-        if (roomType == null || roomType.isBlank()) {
+        if (roomType == null || roomType.isBlank())
             throw new IllegalArgumentException("Room type is required");
-        }
+        if (pricePerNight < 0)
+            throw new IllegalArgumentException("Price per night must be >= 0");
+        if (capacity <= 0)
+            throw new IllegalArgumentException("Capacity must be >= 1");
 
         String sql = "UPDATE rooms SET room_number=?, room_type=?, price_per_night=?, capacity=?, status=? " +
                      "WHERE room_id=?";
@@ -166,7 +189,6 @@ public class RoomDAO {
             ps.setInt(4, capacity);
             ps.setString(5, normalizeStatus(status));
             ps.setInt(6, roomId);
-
             ps.executeUpdate();
         }
     }
@@ -174,10 +196,8 @@ public class RoomDAO {
     // ---------------------------
     // Delete
     // ---------------------------
-    // ✅ Delete room (Manager)
     public void deleteRoom(int roomId) throws Exception {
         String sql = "DELETE FROM rooms WHERE room_id = ?";
-
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 

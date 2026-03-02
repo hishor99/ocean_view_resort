@@ -8,6 +8,7 @@ import model.FoodPackage;
 
 public class FoodPackageDAO {
 
+    // ✅ Main method you already had (keep this)
     public List<FoodPackage> getActivePackages() throws Exception {
         String sql = "SELECT food_id, name, price_per_day, pricing_type, is_active, description " +
                      "FROM food_packages WHERE is_active = 1 ORDER BY name";
@@ -32,6 +33,13 @@ public class FoodPackageDAO {
         return list;
     }
 
+    // ✅ Alias method (optional) - so other code can call findActive()
+    // This avoids changing servlet code if it's using findActive()
+    public List<FoodPackage> findActive() throws Exception {
+        return getActivePackages();
+    }
+
+    // ✅ Find one package by id (keep this)
     public FoodPackage findById(int foodId) throws Exception {
         String sql = "SELECT food_id, name, price_per_day, pricing_type, is_active, description " +
                      "FROM food_packages WHERE food_id = ? LIMIT 1";

@@ -1,32 +1,32 @@
 package controller.staff;
 
 import dao.ReservationDAO;
+import dao.Reservation;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 
 import java.io.IOException;
-import java.util.Map;
 
-@WebServlet("/staff/reservation-invoice")
-public class ReservationInvoiceServlet extends HttpServlet {
+@WebServlet("/staff/reservation-details")
+public class ReservationDetailsServlet extends HttpServlet {
 
     private final ReservationDAO reservationDAO = new ReservationDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         try {
-            int reservationId = Integer.parseInt(req.getParameter("reservationId"));
-            Map<String, Object> invoice = reservationDAO.getReservationInvoice(reservationId);
+            String no = req.getParameter("no");
+            Reservation r = reservationDAO.findByReservationNo(no);
 
-            if (invoice == null) {
+            if (r == null) {
                 req.setAttribute("error", "Reservation not found.");
             } else {
-                req.setAttribute("invoice", invoice);
+                req.setAttribute("res", r);
             }
 
-            // create this JSP if you want pretty invoice view
-            req.getRequestDispatcher("/staff/reservation-invoice.jsp").forward(req, resp);
+            req.getRequestDispatcher("/WEB-INF/staff/reservation_details.jsp").forward(req, resp);
 
         } catch (Exception e) {
             throw new ServletException(e);
