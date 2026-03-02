@@ -1,4 +1,4 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.*" %>
 <%@ page import="model.Room" %>
 
@@ -8,7 +8,45 @@
 <meta charset="UTF-8">
 <title>Manage Rooms</title>
 <link rel="stylesheet" href="<%= request.getContextPath() %>/assets/css/style.css">
+
+<style>
+  .page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .muted{color:#6b7280}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field input,.field select,.field textarea{padding:10px;border:1px solid #ddd;border-radius:10px;outline:none}
+  .field textarea{min-height:90px;resize:vertical}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{padding:10px 14px;border:none;border-radius:10px;cursor:pointer;font-weight:600}
+  .btn-primary{background:#0b3d91;color:#fff}
+  .btn-danger{background:#dc2626;color:#fff}
+  .btn-ghost{background:#eef2ff;color:#0b3d91}
+  .btn-sm{padding:8px 10px;border-radius:9px}
+
+  .table-wrap{overflow:auto;border:1px solid #eee;border-radius:14px}
+  table{width:100%;border-collapse:collapse;min-width:980px}
+  th,td{padding:12px 12px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+  th{background:#f8fafc;text-align:left;font-size:13px;color:#111827;position:sticky;top:0;z-index:1}
+  tr:hover td{background:#fcfcff}
+
+  .badge{display:inline-block;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .b-avail{background:#dcfce7;color:#166534}
+  .b-main{background:#fef3c7;color:#92400e}
+  .b-occ{background:#fee2e2;color:#991b1b}
+
+  .row-form{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row-form input,.row-form select,.row-form textarea{padding:8px 10px;border:1px solid #ddd;border-radius:10px}
+  .desc-cell{max-width:360px}
+  .desc-cell small{color:#6b7280}
+
+  @media (max-width: 900px){
+    .grid,.grid-3{grid-template-columns:1fr}
+    table{min-width:860px}
+  }
+</style>
 </head>
+
 <body>
 
 <jsp:include page="/includes/header.jsp" />
@@ -17,120 +55,169 @@
 <div class="container">
 
   <div class="card">
-    <h2>Manage Room Prices</h2>
-    <p>Add rooms, edit price/capacity/status, and delete rooms.</p>
+    <div class="page-head">
+      <div>
+        <h2 style="margin:0;">Manage Room Prices</h2>
+        <p class="muted" style="margin:6px 0 0;">
+          Add rooms, edit price/capacity/description/status, and delete rooms.
+        </p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-ghost" href="<%= request.getContextPath() %>/manager/dashboard">← Back to Dashboard</a>
+      </div>
+    </div>
   </div>
 
   <!-- ✅ ADD NEW ROOM -->
   <div class="card">
-    <h3>Add New Room</h3>
+    <h3 style="margin-top:0;">Add New Room</h3>
 
-    <!-- This submits to ManagerRoomsServlet doPost: /manager/rooms -->
     <form method="post" action="<%= request.getContextPath() %>/manager/rooms">
 
-      <label>Room Number</label><br>
-      <input type="text" name="roomNumber" required><br><br>
+      <div class="grid">
+        <div class="field">
+          <label>Room Number</label>
+          <input type="text" name="roomNumber" placeholder="A-101" required>
+        </div>
 
-      <label>Room Type</label><br>
-      <input type="text" name="roomType" required><br><br>
+        <div class="field">
+          <label>Room Type</label>
+          <input type="text" name="roomType" placeholder="Deluxe / Standard" required>
+        </div>
+      </div>
 
-      <label>Capacity</label><br>
-      <input type="number" name="capacity" min="1" required><br><br>
+      <div class="grid-3" style="margin-top:12px;">
+        <div class="field">
+          <label>Capacity</label>
+          <input type="number" name="capacity" min="1" required>
+        </div>
 
-      <label>Price Per Night</label><br>
-      <input type="number" name="pricePerNight" min="0" step="0.01" required><br><br>
+        <div class="field">
+          <label>Description</label>
+          <input type="text" name="description" placeholder="Sea view, AC, balcony..." required>
+        </div>
 
-      <label>Status</label><br>
-      <select name="status">
-        <option value="AVAILABLE">AVAILABLE</option>
-        <option value="MAINTENANCE">MAINTENANCE</option>
-        <option value="OCCUPIED">OCCUPIED</option>
-      </select><br><br>
+        <div class="field">
+          <label>Price Per Night (Rs.)</label>
+          <input type="number" name="pricePerNight" min="0" step="0.01" required>
+        </div>
+      </div>
 
-      <button class="btn" type="submit">Add Room</button>
+      <div class="grid" style="margin-top:12px;">
+        <div class="field">
+          <label>Status</label>
+          <select name="status">
+            <option value="AVAILABLE">AVAILABLE</option>
+            <option value="MAINTENANCE">MAINTENANCE</option>
+            <option value="OCCUPIED">OCCUPIED</option>
+          </select>
+        </div>
+
+        <div class="field" style="justify-content:end;">
+          <label style="visibility:hidden;">Action</label>
+          <button class="btn btn-primary" type="submit">Add Room</button>
+        </div>
+      </div>
+
     </form>
   </div>
 
   <!-- ✅ ROOMS TABLE -->
   <div class="card">
-    <h3>All Rooms</h3>
+    <h3 style="margin-top:0;">All Rooms</h3>
 
-    <table border="1" cellpadding="10" cellspacing="0" style="width:100%; border-collapse:collapse;">
-      <tr>
-        <th>Room No</th>
-        <th>Type</th>
-        <th>Capacity</th>
-        <th>Price / Night</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:90px;">Room No</th>
+            <th style="width:160px;">Type</th>
+            <th style="width:110px;">Capacity</th>
+            <th>Description</th>
+            <th style="width:140px;">Price / Night</th>
+            <th style="width:160px;">Status</th>
+            <th style="width:170px;">Actions</th>
+          </tr>
+        </thead>
 
-      <%
-        List<Room> rooms = (List<Room>) request.getAttribute("rooms");
-        if (rooms == null || rooms.isEmpty()) {
-      %>
-        <tr>
-          <td colspan="6">No rooms found.</td>
-        </tr>
-      <%
-        } else {
-          for (Room r : rooms) {
-      %>
+        <tbody>
+        <%
+          List<Room> rooms = (List<Room>) request.getAttribute("rooms");
+          if (rooms == null || rooms.isEmpty()) {
+        %>
+          <tr>
+            <td colspan="7" class="muted">No rooms found.</td>
+          </tr>
+        <%
+          } else {
+            for (Room r : rooms) {
 
-      <tr>
-        <td><%= r.getRoomNumber() %></td>
-        <td><%= r.getRoomType() %></td>
+              String st = (r.getStatus() == null) ? "" : r.getStatus();
+              String badgeClass = "b-avail";
+              if ("MAINTENANCE".equalsIgnoreCase(st)) badgeClass = "b-main";
+              else if ("OCCUPIED".equalsIgnoreCase(st)) badgeClass = "b-occ";
+        %>
 
-        <!-- ✅ UPDATE FORM (price+capacity+status) -->
-        <td>
-          <form method="post"
-                action="<%= request.getContextPath() %>/manager/rooms/update"
-                style="margin:0;">
-            <input type="number" name="capacity" min="1" value="<%= r.getCapacity() %>" required>
-        </td>
+          <tr>
+            <td><b><%= r.getRoomNumber() %></b></td>
+            <td><%= r.getRoomType() %></td>
 
-        <td>
-            <input type="number" name="pricePerNight" min="0" step="0.01"
-                   value="<%= r.getPricePerNight() %>" required>
-        </td>
+            <!-- ✅ UPDATE FORM (capacity + description + price + status) -->
+            <td>
+              <form method="post"
+                    action="<%= request.getContextPath() %>/manager/rooms/update"
+                    class="row-form"
+                    style="margin:0;">
+                <input type="number" name="capacity" min="1" value="<%= r.getCapacity() %>" required>
+            </td>
 
-        <td>
-            <select name="status">
-              <option value="AVAILABLE" <%= "AVAILABLE".equalsIgnoreCase(r.getStatus()) ? "selected" : "" %>>AVAILABLE</option>
-              <option value="MAINTENANCE" <%= "MAINTENANCE".equalsIgnoreCase(r.getStatus()) ? "selected" : "" %>>MAINTENANCE</option>
-              <option value="OCCUPIED" <%= "OCCUPIED".equalsIgnoreCase(r.getStatus()) ? "selected" : "" %>>OCCUPIED</option>
-            </select>
-        </td>
+            <td class="desc-cell">
+                <input type="text" name="description"
+                       value="<%= (r.getDescription() != null ? r.getDescription() : "") %>"
+                       placeholder="Room features..." required>
+                <div><small>Edit description and click Save</small></div>
+            </td>
 
-        <td>
-            <input type="hidden" name="roomId" value="<%= r.getRoomId() %>">
+            <td>
+                <input type="number" name="pricePerNight" min="0" step="0.01"
+                       value="<%= r.getPricePerNight() %>" required>
+            </td>
 
-            <button class="btn" type="submit">Save</button>
-          </form>
+            <td>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <span class="badge <%= badgeClass %>"><%= st %></span>
 
-          <!-- ✅ DELETE FORM -->
-          <form method="post"
-                action="<%= request.getContextPath() %>/manager/rooms/delete"
-                style="margin-top:6px;"
-                onsubmit="return confirm('Delete this room?');">
-            <input type="hidden" name="roomId" value="<%= r.getRoomId() %>">
-            <button type="submit"
-                    style="background:#dc2626;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">
-              Delete
-            </button>
-          </form>
-        </td>
-      </tr>
+                  <select name="status" required>
+                    <option value="AVAILABLE" <%= "AVAILABLE".equalsIgnoreCase(st) ? "selected" : "" %>>AVAILABLE</option>
+                    <option value="MAINTENANCE" <%= "MAINTENANCE".equalsIgnoreCase(st) ? "selected" : "" %>>MAINTENANCE</option>
+                    <option value="OCCUPIED" <%= "OCCUPIED".equalsIgnoreCase(st) ? "selected" : "" %>>OCCUPIED</option>
+                  </select>
+                </div>
+            </td>
 
-      <%
+            <td>
+                <input type="hidden" name="roomId" value="<%= r.getRoomId() %>">
+                <button class="btn btn-primary btn-sm" type="submit">Save</button>
+              </form>
+
+              <!-- ✅ DELETE FORM -->
+              <form method="post"
+                    action="<%= request.getContextPath() %>/manager/rooms/delete"
+                    style="margin-top:8px;"
+                    onsubmit="return confirm('Delete this room?');">
+                <input type="hidden" name="roomId" value="<%= r.getRoomId() %>">
+                <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+
+        <%
+            }
           }
-        }
-      %>
-    </table>
-  </div>
-
-  <div class="card">
-    <a href="<%= request.getContextPath() %>/manager/dashboard.jsp">Back to Manager Dashboard</a>
+        %>
+        </tbody>
+      </table>
+    </div>
   </div>
 
 </div>

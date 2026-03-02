@@ -23,14 +23,20 @@ public class RoomDAO {
         return s;
     }
 
+    private String cleanDescription(String desc) {
+        if (desc == null) return null;
+        String d = desc.trim();
+        return d.isBlank() ? null : d;
+    }
+
     private Room mapRoom(ResultSet rs) throws SQLException {
-        // If your Room model has different constructor, adjust accordingly
         return new Room(
                 rs.getInt("room_id"),
                 rs.getString("room_number"),
                 rs.getString("room_type"),
                 rs.getDouble("price_per_night"),
                 rs.getInt("capacity"),
+                rs.getString("description"),  // ✅ NEW
                 rs.getString("status")
         );
     }
@@ -39,7 +45,8 @@ public class RoomDAO {
     // Create
     // ---------------------------
     public void addRoom(String roomNumber, String roomType,
-                        double pricePerNight, int capacity, String status) throws Exception {
+                        double pricePerNight, int capacity,
+                        String description, String status) throws Exception {
 
         if (roomNumber == null || roomNumber.isBlank())
             throw new IllegalArgumentException("Room number is required");
@@ -50,8 +57,8 @@ public class RoomDAO {
         if (capacity <= 0)
             throw new IllegalArgumentException("Capacity must be >= 1");
 
-        String sql = "INSERT INTO rooms (room_number, room_type, price_per_night, capacity, status) " +
-                     "VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO rooms (room_number, room_type, price_per_night, capacity, description, status) " +
+                     "VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -60,7 +67,8 @@ public class RoomDAO {
             ps.setString(2, roomType.trim());
             ps.setDouble(3, pricePerNight);
             ps.setInt(4, capacity);
-            ps.setString(5, normalizeStatus(status));
+            ps.setString(5, cleanDescription(description)); // ✅ NEW
+            ps.setString(6, normalizeStatus(status));
             ps.executeUpdate();
         }
     }
@@ -69,7 +77,7 @@ public class RoomDAO {
     // Read
     // ---------------------------
     public List<Room> getAllRooms() throws Exception {
-        String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, status " +
+        String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, description, status " +
                      "FROM rooms ORDER BY room_id DESC";
 
         List<Room> list = new ArrayList<>();
@@ -84,7 +92,7 @@ public class RoomDAO {
 
     // NOT date-aware (simple)
     public List<Room> getAvailableRooms() throws Exception {
-        String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, status " +
+        String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, description, status " +
                      "FROM rooms WHERE status='AVAILABLE' ORDER BY room_id DESC";
 
         List<Room> list = new ArrayList<>();
@@ -109,7 +117,7 @@ public class RoomDAO {
             throw new IllegalArgumentException("Guests must be >= 1");
 
         String sql =
-                "SELECT r.room_id, r.room_number, r.room_type, r.price_per_night, r.capacity, r.status " +
+                "SELECT r.room_id, r.room_number, r.room_type, r.price_per_night, r.capacity, r.description, r.status " +
                 "FROM rooms r " +
                 "WHERE r.status = 'AVAILABLE' " +
                 "  AND r.capacity >= ? " +
@@ -137,7 +145,7 @@ public class RoomDAO {
     }
 
     public Room findById(int roomId) throws Exception {
-        String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, status " +
+        String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, description, status " +
                      "FROM rooms WHERE room_id=? LIMIT 1";
 
         try (Connection conn = DBConnection.getConnection();
@@ -165,8 +173,10 @@ public class RoomDAO {
         }
     }
 
+    // Full update
     public void updateRoom(int roomId, String roomNumber, String roomType,
-                           double pricePerNight, int capacity, String status) throws Exception {
+                           double pricePerNight, int capacity,
+                           String description, String status) throws Exception {
 
         if (roomNumber == null || roomNumber.isBlank())
             throw new IllegalArgumentException("Room number is required");
@@ -177,7 +187,7 @@ public class RoomDAO {
         if (capacity <= 0)
             throw new IllegalArgumentException("Capacity must be >= 1");
 
-        String sql = "UPDATE rooms SET room_number=?, room_type=?, price_per_night=?, capacity=?, status=? " +
+        String sql = "UPDATE rooms SET room_number=?, room_type=?, price_per_night=?, capacity=?, description=?, status=? " +
                      "WHERE room_id=?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -187,8 +197,32 @@ public class RoomDAO {
             ps.setString(2, roomType.trim());
             ps.setDouble(3, pricePerNight);
             ps.setInt(4, capacity);
-            ps.setString(5, normalizeStatus(status));
-            ps.setInt(6, roomId);
+            ps.setString(5, cleanDescription(description)); // ✅ NEW
+            ps.setString(6, normalizeStatus(status));
+            ps.setInt(7, roomId);
+            ps.executeUpdate();
+        }
+    }
+
+    // ✅ Small update method for your table "Save" button (capacity + description + price + status)
+    public void updateRoomPricing(int roomId, int capacity, String description,
+                                  double pricePerNight, String status) throws Exception {
+
+        if (pricePerNight < 0)
+            throw new IllegalArgumentException("Price per night must be >= 0");
+        if (capacity <= 0)
+            throw new IllegalArgumentException("Capacity must be >= 1");
+
+        String sql = "UPDATE rooms SET capacity=?, description=?, price_per_night=?, status=? WHERE room_id=?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, capacity);
+            ps.setString(2, cleanDescription(description));
+            ps.setDouble(3, pricePerNight);
+            ps.setString(4, normalizeStatus(status));
+            ps.setInt(5, roomId);
             ps.executeUpdate();
         }
     }

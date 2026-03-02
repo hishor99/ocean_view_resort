@@ -23,12 +23,12 @@ public class ManagerRoomsServlet extends HttpServlet {
             List<Room> rooms = roomDAO.getAllRooms();
             request.setAttribute("rooms", rooms);
 
-            // ✅ Your JSP is here: src/main/webapp/manager/rooms.jsp
+            // ✅ JSP location (as you mentioned)
             request.getRequestDispatcher("/manager/rooms.jsp")
                    .forward(request, response);
 
         } catch (Exception e) {
-            throw new ServletException(e);
+            throw new ServletException("Failed to load rooms: " + e.getMessage(), e);
         }
     }
 
@@ -37,18 +37,33 @@ public class ManagerRoomsServlet extends HttpServlet {
             throws ServletException, IOException {
 
         try {
-            String roomNumber = request.getParameter("roomNumber");
-            String roomType = request.getParameter("roomType");
+            String roomNumber  = request.getParameter("roomNumber");
+            String roomType    = request.getParameter("roomType");
+            String description = request.getParameter("description"); // ✅ NEW
+            String status      = request.getParameter("status");
+
             double price = Double.parseDouble(request.getParameter("pricePerNight"));
             int capacity = Integer.parseInt(request.getParameter("capacity"));
-            String status = request.getParameter("status");
 
-            roomDAO.addRoom(roomNumber, roomType, price, capacity, status);
+            // ✅ Updated DAO call (6 params)
+            roomDAO.addRoom(
+                    roomNumber != null ? roomNumber.trim() : null,
+                    roomType != null ? roomType.trim() : null,
+                    price,
+                    capacity,
+                    description,  // ✅ pass description
+                    status
+            );
 
             response.sendRedirect(request.getContextPath() + "/manager/rooms");
 
+        } catch (NumberFormatException nfe) {
+            // If user typed invalid numbers
+            request.setAttribute("error", "Invalid number format for capacity or price.");
+            doGet(request, response);
+
         } catch (Exception e) {
-            throw new ServletException(e);
+            throw new ServletException("Failed to add room: " + e.getMessage(), e);
         }
     }
 }

@@ -8,13 +8,13 @@ public class Vehicle {
     private String plateNo;
     private double pricePerDay;
     private int capacity;
-    private int isActive;
+    private int isActive;   // 1 = active, 0 = inactive
     private String notes;
 
-    // ✅ Empty constructor (optional, helps frameworks / future changes)
+    // ✅ Empty constructor
     public Vehicle() {}
 
-    // ✅ Main constructor (used by your VehicleDAO)
+    // ✅ Main constructor (used by DAO)
     public Vehicle(int vehicleId, String type, String model, String plateNo,
                    double pricePerDay, int capacity, int isActive, String notes) {
         this.vehicleId = vehicleId;
@@ -23,7 +23,7 @@ public class Vehicle {
         this.plateNo = plateNo;
         this.pricePerDay = pricePerDay;
         this.capacity = capacity;
-        this.isActive = isActive;
+        this.isActive = (isActive == 1) ? 1 : 0; // normalize
         this.notes = notes;
     }
 
@@ -37,13 +37,23 @@ public class Vehicle {
     public int getIsActive() { return isActive; }
     public String getNotes() { return notes; }
 
-    // ===== Setters (optional but useful) =====
+    // ✅ NEW: Boolean helper for JSP (v.isActive())
+    public boolean isActive() {
+        return isActive == 1;
+    }
+
+    // ===== Setters =====
     public void setVehicleId(int vehicleId) { this.vehicleId = vehicleId; }
     public void setType(String type) { this.type = type; }
     public void setModel(String model) { this.model = model; }
     public void setPlateNo(String plateNo) { this.plateNo = plateNo; }
     public void setPricePerDay(double pricePerDay) { this.pricePerDay = pricePerDay; }
     public void setCapacity(int capacity) { this.capacity = capacity; }
-    public void setIsActive(int isActive) { this.isActive = isActive; }
+
+    // ✅ Normalize setter (ensures only 0 or 1 stored)
+    public void setIsActive(int isActive) {
+        this.isActive = (isActive == 1) ? 1 : 0;
+    }
+
     public void setNotes(String notes) { this.notes = notes; }
 }

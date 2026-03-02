@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 public class ReservationDAO {
 
@@ -109,18 +110,18 @@ public class ReservationDAO {
             double pricePerNight = getRoomPrice(conn, roomId);
             double roomTotal = pricePerNight * nights;
 
-            // 3) Food + Vehicle totals (based on YOUR DB columns)
+            // 3) Food + Vehicle totals
             double foodTotal = calculateFoodTotal(conn, foodId, guestsCount, nights);
             double vehicleTotal = calculateVehicleTotal(conn, vehicleId, nights);
 
             double grandTotal = roomTotal + foodTotal + vehicleTotal;
 
-            // 4) Get room details (to store in guests table as you requested)
+            // 4) Room details for guest table
             Map<String, String> roomDetails = getRoomDetails(conn, roomId);
             String roomType = roomDetails.get("roomType");
             String roomNumber = roomDetails.get("roomNumber");
 
-            // 5) Find or create guest in guests table
+            // 5) Find or create guest
             Integer guestId = findGuestIdByPhone(conn, guestPhone);
             if (guestId == null) {
                 guestId = createGuest(conn, guestName, guestAddress, guestPhone, guestEmail, roomType, roomNumber);
@@ -128,7 +129,7 @@ public class ReservationDAO {
                 updateGuestRoomInfo(conn, guestId, roomType, roomNumber);
             }
 
-            // 6) Insert reservation (guest_id filled, customer_id NULL)
+            // 6) Insert reservation
             String insertSql = "INSERT INTO reservations " +
                     "(reservation_no, guest_id, customer_id, room_id, check_in, check_out, nights, guests, " +
                     " food_id, vehicle_id, room_total, food_total, vehicle_total, grand_total, status, " +
@@ -246,9 +247,7 @@ public class ReservationDAO {
     }
 
     // =========================
-    // Helpers: Food + Vehicle totals (matches YOUR DB schema)
-    // food_packages: price_per_day, pricing_type (PER_PERSON_PER_DAY / PER_ROOM_PER_DAY), is_active
-    // vehicles: price_per_day, is_active
+    // Helpers: Food + Vehicle totals
     // =========================
     private double calculateFoodTotal(Connection conn, Integer foodId, int guests, int nights) throws Exception {
         if (foodId == null) return 0;
@@ -268,8 +267,7 @@ public class ReservationDAO {
                 if ("PER_PERSON_PER_DAY".equalsIgnoreCase(pricingType)) {
                     return pricePerDay * guests * nights;
                 }
-                // default: PER_ROOM_PER_DAY
-                return pricePerDay * nights;
+                return pricePerDay * nights; // PER_ROOM_PER_DAY
             }
         }
     }
@@ -357,7 +355,7 @@ public class ReservationDAO {
     }
 
     // =========================
-    // Invoice / Details  ✅ REQUIRED by ReservationInvoiceServlet
+    // Invoice / Details
     // =========================
     public Map<String, Object> getReservationInvoice(int reservationId) throws Exception {
 
@@ -397,13 +395,11 @@ public class ReservationDAO {
                 m.put("status", rs.getString("status"));
                 m.put("createdAt", rs.getTimestamp("created_at"));
 
-                // guest (walk-in)
                 m.put("guestName", safeGet(rs, "guest_name"));
                 m.put("guestAddress", safeGet(rs, "guest_address"));
                 m.put("guestPhone", safeGet(rs, "guest_phone"));
                 m.put("guestEmail", safeGet(rs, "guest_email"));
 
-                // room
                 m.put("roomNumber", rs.getString("room_number"));
                 m.put("roomType", rs.getString("room_type"));
                 m.put("capacity", rs.getInt("capacity"));
@@ -417,86 +413,81 @@ public class ReservationDAO {
     private String safeGet(ResultSet rs, String col) {
         try { return rs.getString(col); } catch (Exception e) { return null; }
     }
-    
- // =========================
- // D) Reservation Details (Search by reservation_no)
- // =========================
- public Map<String, Object> findByReservationNo(String reservationNo) throws Exception {
 
-     String sql =
-         "SELECT r.reservation_id, r.reservation_no, r.status, r.created_at, r.confirmed_at, " +
-         "       r.check_in, r.check_out, r.nights, r.guests, r.room_id, r.room_type, " +
-         "       r.food_id, r.vehicle_id, " +
-         "       r.room_total, r.food_total, r.vehicle_total, r.grand_total, " +
-         "       rm.room_number, rm.price_per_night, rm.capacity AS room_capacity, " +
-         "       g.guest_name, g.address AS guest_address, g.phone AS guest_phone, g.email AS guest_email, " +
-         "       fp.name AS food_name, fp.price_per_day AS food_price_per_day, fp.pricing_type AS food_pricing_type, " +
-         "       v.type AS vehicle_type, v.model AS vehicle_model, v.plate_no, v.price_per_day AS vehicle_price_per_day " +
-         "FROM reservations r " +
-         "LEFT JOIN rooms rm ON rm.room_id = r.room_id " +
-         "LEFT JOIN guests g ON g.guest_id = r.guest_id " +
-         "LEFT JOIN food_packages fp ON fp.food_id = r.food_id " +
-         "LEFT JOIN vehicles v ON v.vehicle_id = r.vehicle_id " +
-         "WHERE r.reservation_no = ? " +
-         "LIMIT 1";
+    // =========================
+    // D) Reservation Details (Search by reservation_no)
+    // =========================
+    public Map<String, Object> findByReservationNo(String reservationNo) throws Exception {
 
-     try (Connection conn = DBConnection.getConnection();
-          PreparedStatement ps = conn.prepareStatement(sql)) {
+        String sql =
+            "SELECT r.reservation_id, r.reservation_no, r.status, r.created_at, r.confirmed_at, " +
+            "       r.check_in, r.check_out, r.nights, r.guests, r.room_id, r.room_type, " +
+            "       r.food_id, r.vehicle_id, " +
+            "       r.room_total, r.food_total, r.vehicle_total, r.grand_total, " +
+            "       rm.room_number, rm.price_per_night, rm.capacity AS room_capacity, " +
+            "       g.guest_name, g.address AS guest_address, g.phone AS guest_phone, g.email AS guest_email, " +
+            "       fp.name AS food_name, fp.price_per_day AS food_price_per_day, fp.pricing_type AS food_pricing_type, " +
+            "       v.type AS vehicle_type, v.model AS vehicle_model, v.plate_no, v.price_per_day AS vehicle_price_per_day " +
+            "FROM reservations r " +
+            "LEFT JOIN rooms rm ON rm.room_id = r.room_id " +
+            "LEFT JOIN guests g ON g.guest_id = r.guest_id " +
+            "LEFT JOIN food_packages fp ON fp.food_id = r.food_id " +
+            "LEFT JOIN vehicles v ON v.vehicle_id = r.vehicle_id " +
+            "WHERE r.reservation_no = ? " +
+            "LIMIT 1";
 
-         ps.setString(1, reservationNo);
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-         try (ResultSet rs = ps.executeQuery()) {
-             if (!rs.next()) return null;
+            ps.setString(1, reservationNo);
 
-             Map<String, Object> m = new HashMap<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
 
-             // keep same key style you already use elsewhere
-             m.put("reservationId", rs.getInt("reservation_id"));
-             m.put("reservationNo", rs.getString("reservation_no"));
-             m.put("status", rs.getString("status"));
-             m.put("createdAt", rs.getTimestamp("created_at"));
-             m.put("confirmedAt", rs.getTimestamp("confirmed_at"));
+                Map<String, Object> m = new HashMap<>();
 
-             m.put("checkIn", rs.getDate("check_in"));
-             m.put("checkOut", rs.getDate("check_out"));
-             m.put("nights", rs.getInt("nights"));
-             m.put("guests", rs.getInt("guests"));
+                m.put("reservationId", rs.getInt("reservation_id"));
+                m.put("reservationNo", rs.getString("reservation_no"));
+                m.put("status", rs.getString("status"));
+                m.put("createdAt", rs.getTimestamp("created_at"));
+                m.put("confirmedAt", rs.getTimestamp("confirmed_at"));
 
-             m.put("roomId", rs.getInt("room_id"));
-             m.put("roomType", rs.getString("room_type"));
-             m.put("roomNumber", rs.getString("room_number"));
-             m.put("pricePerNight", rs.getDouble("price_per_night"));
-             m.put("capacity", rs.getInt("room_capacity"));
+                m.put("checkIn", rs.getDate("check_in"));
+                m.put("checkOut", rs.getDate("check_out"));
+                m.put("nights", rs.getInt("nights"));
+                m.put("guests", rs.getInt("guests"));
 
-             // guest info (walk-in from guests table)
-             m.put("guestName", safeGet(rs, "guest_name"));
-             m.put("guestAddress", safeGet(rs, "guest_address"));
-             m.put("guestPhone", safeGet(rs, "guest_phone"));
-             m.put("guestEmail", safeGet(rs, "guest_email"));
+                m.put("roomId", rs.getInt("room_id"));
+                m.put("roomType", rs.getString("room_type"));
+                m.put("roomNumber", rs.getString("room_number"));
+                m.put("pricePerNight", rs.getDouble("price_per_night"));
+                m.put("capacity", rs.getInt("room_capacity"));
 
-             // food
-             m.put("foodId", (Integer) rs.getObject("food_id"));
-             m.put("foodName", rs.getString("food_name"));
-             m.put("foodPricePerDay", rs.getDouble("food_price_per_day"));
-             m.put("foodPricingType", rs.getString("food_pricing_type"));
+                m.put("guestName", safeGet(rs, "guest_name"));
+                m.put("guestAddress", safeGet(rs, "guest_address"));
+                m.put("guestPhone", safeGet(rs, "guest_phone"));
+                m.put("guestEmail", safeGet(rs, "guest_email"));
 
-             // vehicle
-             m.put("vehicleId", (Integer) rs.getObject("vehicle_id"));
-             m.put("vehicleType", rs.getString("vehicle_type"));
-             m.put("vehicleModel", rs.getString("vehicle_model"));
-             m.put("plateNo", rs.getString("plate_no"));
-             m.put("vehiclePricePerDay", rs.getDouble("vehicle_price_per_day"));
+                m.put("foodId", (Integer) rs.getObject("food_id"));
+                m.put("foodName", rs.getString("food_name"));
+                m.put("foodPricePerDay", rs.getDouble("food_price_per_day"));
+                m.put("foodPricingType", rs.getString("food_pricing_type"));
 
-             // totals
-             m.put("roomTotal", rs.getDouble("room_total"));
-             m.put("foodTotal", rs.getDouble("food_total"));
-             m.put("vehicleTotal", rs.getDouble("vehicle_total"));
-             m.put("grandTotal", rs.getDouble("grand_total"));
+                m.put("vehicleId", (Integer) rs.getObject("vehicle_id"));
+                m.put("vehicleType", rs.getString("vehicle_type"));
+                m.put("vehicleModel", rs.getString("vehicle_model"));
+                m.put("plateNo", rs.getString("plate_no"));
+                m.put("vehiclePricePerDay", rs.getDouble("vehicle_price_per_day"));
 
-             return m;
-         }
-     }
- }
+                m.put("roomTotal", rs.getDouble("room_total"));
+                m.put("foodTotal", rs.getDouble("food_total"));
+                m.put("vehicleTotal", rs.getDouble("vehicle_total"));
+                m.put("grandTotal", rs.getDouble("grand_total"));
+
+                return m;
+            }
+        }
+    }
 
     // =========================
     // List helper
@@ -533,5 +524,86 @@ public class ReservationDAO {
             }
         }
         return list;
+    }
+
+    // =========================
+    // REPORTS (Manager Graphs)
+    // =========================
+
+    // 1) Reservations count per month (for a given year)
+    public Map<String, Integer> getReservationCountByMonth(int year) throws Exception {
+
+        String sql =
+            "SELECT DATE_FORMAT(check_in, '%Y-%m') AS ym, COUNT(*) AS cnt " +
+            "FROM reservations " +
+            "WHERE YEAR(check_in)=? " +
+            "GROUP BY DATE_FORMAT(check_in, '%Y-%m') " +
+            "ORDER BY ym";
+
+        Map<String, Integer> map = new LinkedHashMap<>();
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, year);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    map.put(rs.getString("ym"), rs.getInt("cnt"));
+                }
+            }
+        }
+
+        return map;
+    }
+
+    // 2) Reservations count by status
+    public Map<String, Integer> getReservationCountByStatus() throws Exception {
+
+        String sql =
+            "SELECT status, COUNT(*) AS cnt " +
+            "FROM reservations " +
+            "GROUP BY status " +
+            "ORDER BY status";
+
+        Map<String, Integer> map = new LinkedHashMap<>();
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                map.put(rs.getString("status"), rs.getInt("cnt"));
+            }
+        }
+
+        return map;
+    }
+
+    // 3) Revenue per month (sum of grand_total) - using CONFIRMED/COMPLETED only
+    public Map<String, Double> getRevenueByMonth(int year) throws Exception {
+
+        String sql =
+            "SELECT DATE_FORMAT(check_in, '%Y-%m') AS ym, COALESCE(SUM(grand_total),0) AS total " +
+            "FROM reservations " +
+            "WHERE YEAR(check_in)=? AND status IN ('CONFIRMED','COMPLETED') " +
+            "GROUP BY DATE_FORMAT(check_in, '%Y-%m') " +
+            "ORDER BY ym";
+
+        Map<String, Double> map = new LinkedHashMap<>();
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, year);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    map.put(rs.getString("ym"), rs.getDouble("total"));
+                }
+            }
+        }
+
+        return map;
     }
 }

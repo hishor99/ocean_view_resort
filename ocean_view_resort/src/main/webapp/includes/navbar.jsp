@@ -23,8 +23,7 @@
         <%= (session.getAttribute("full_name") != null
             ? session.getAttribute("full_name")
             : "Guest") %>
-         <a href="<%=request.getContextPath()%>/staff/dashboard">← Back</a>
-        <a href="<%=request.getContextPath()%>/staff/reservation-details">Reservation Details</a>
+        <a href="<%=request.getContextPath()%>/staff/dashboard">Home</a>
         <a href="<%= request.getContextPath() %>/logout">Logout</a>
     </div>
 </div>
