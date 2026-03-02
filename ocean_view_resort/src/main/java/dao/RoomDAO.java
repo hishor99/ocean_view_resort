@@ -36,7 +36,7 @@ public class RoomDAO {
                 rs.getString("room_type"),
                 rs.getDouble("price_per_night"),
                 rs.getInt("capacity"),
-                rs.getString("description"),  // ✅ NEW
+                rs.getString("description"),
                 rs.getString("status")
         );
     }
@@ -67,7 +67,7 @@ public class RoomDAO {
             ps.setString(2, roomType.trim());
             ps.setDouble(3, pricePerNight);
             ps.setInt(4, capacity);
-            ps.setString(5, cleanDescription(description)); // ✅ NEW
+            ps.setString(5, cleanDescription(description));
             ps.setString(6, normalizeStatus(status));
             ps.executeUpdate();
         }
@@ -106,7 +106,6 @@ public class RoomDAO {
     }
 
     // ✅ Date-aware availability (Overlap rule)
-    // overlap if (existing.check_in < new.check_out) AND (existing.check_out > new.check_in)
     public List<Room> findAvailableRooms(LocalDate checkIn, LocalDate checkOut, int guests) throws Exception {
 
         if (checkIn == null || checkOut == null)
@@ -173,6 +172,29 @@ public class RoomDAO {
         }
     }
 
+    // ✅ COMPAT METHOD for UpdateRoomServlet
+    // Matches: updatePriceAndStatus(int roomId, double price, String status, int capacity)
+    public boolean updatePriceAndStatus(int roomId, double pricePerNight, String status, int capacity) throws Exception {
+
+        if (pricePerNight < 0)
+            throw new IllegalArgumentException("Price per night must be >= 0");
+        if (capacity <= 0)
+            throw new IllegalArgumentException("Capacity must be >= 1");
+
+        String sql = "UPDATE rooms SET price_per_night=?, status=?, capacity=? WHERE room_id=?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setDouble(1, pricePerNight);
+            ps.setString(2, normalizeStatus(status));
+            ps.setInt(3, capacity);
+            ps.setInt(4, roomId);
+
+            return ps.executeUpdate() > 0;
+        }
+    }
+
     // Full update
     public void updateRoom(int roomId, String roomNumber, String roomType,
                            double pricePerNight, int capacity,
@@ -197,7 +219,7 @@ public class RoomDAO {
             ps.setString(2, roomType.trim());
             ps.setDouble(3, pricePerNight);
             ps.setInt(4, capacity);
-            ps.setString(5, cleanDescription(description)); // ✅ NEW
+            ps.setString(5, cleanDescription(description));
             ps.setString(6, normalizeStatus(status));
             ps.setInt(7, roomId);
             ps.executeUpdate();

@@ -217,6 +217,82 @@ public class ReservationDAO {
         int year = LocalDate.now().getYear();
         return String.format("RES-%d-%06d", year, reservationId);
     }
+    
+    
+ // =========================
+ // Staff: Confirm a PENDING reservation
+ // - sets status = CONFIRMED
+ // - sets confirmed_by, confirmed_at
+ // - generates reservation_no if missing/TEMP
+ // =========================
+ public boolean confirmReservation(int reservationId, Integer staffUserId) throws Exception {
+
+     if (reservationId <= 0) throw new IllegalArgumentException("Invalid reservation id");
+
+     Connection conn = null;
+     try {
+         conn = DBConnection.getConnection();
+         conn.setAutoCommit(false);
+
+         // 1) Read current reservation_no + status
+         String curSql = "SELECT reservation_no, status FROM reservations WHERE reservation_id=? LIMIT 1";
+         String currentNo = null;
+         String currentStatus = null;
+
+         try (PreparedStatement ps = conn.prepareStatement(curSql)) {
+             ps.setInt(1, reservationId);
+             try (ResultSet rs = ps.executeQuery()) {
+                 if (!rs.next()) throw new Exception("Reservation not found.");
+                 currentNo = rs.getString("reservation_no");
+                 currentStatus = rs.getString("status");
+             }
+         }
+
+         // Only confirm PENDING
+         if (currentStatus == null || !currentStatus.equalsIgnoreCase("PENDING")) {
+             conn.rollback();
+             return false;
+         }
+
+         // 2) Generate reservation_no if missing/TEMP
+         if (currentNo == null || currentNo.isBlank() || "TEMP".equalsIgnoreCase(currentNo)) {
+             String newNo = formatReservationNo(reservationId);
+             try (PreparedStatement ps = conn.prepareStatement(
+                     "UPDATE reservations SET reservation_no=? WHERE reservation_id=?")) {
+                 ps.setString(1, newNo);
+                 ps.setInt(2, reservationId);
+                 ps.executeUpdate();
+             }
+         }
+
+         // 3) Confirm reservation
+         String upSql =
+                 "UPDATE reservations " +
+                 "SET status='CONFIRMED', confirmed_by=?, confirmed_at=NOW() " +
+                 "WHERE reservation_id=?";
+
+         int updated;
+         try (PreparedStatement ps = conn.prepareStatement(upSql)) {
+             if (staffUserId == null) ps.setNull(1, Types.INTEGER);
+             else ps.setInt(1, staffUserId);
+
+             ps.setInt(2, reservationId);
+             updated = ps.executeUpdate();
+         }
+
+         conn.commit();
+         return updated > 0;
+
+     } catch (Exception e) {
+         if (conn != null) conn.rollback();
+         throw e;
+     } finally {
+         if (conn != null) {
+             try { conn.setAutoCommit(true); } catch (Exception ignore) {}
+             try { conn.close(); } catch (Exception ignore) {}
+         }
+     }
+ }
 
     // =========================
     // Helpers: Room
