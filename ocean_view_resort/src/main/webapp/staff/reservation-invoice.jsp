@@ -5,6 +5,16 @@
 <head>
   <title>Reservation Invoice</title>
   <link rel="stylesheet" href="<%= request.getContextPath() %>/assets/css/style.css">
+  <button type="button"
+        onclick="history.back()"
+        style="padding:8px 14px;
+               border-radius:10px;
+               background:#f1f5f9;
+               border:1px solid #e2e8f0;
+               font-weight:800;
+               cursor:pointer;">
+  ← Go Back
+</button>
   <style>
     .invoice { max-width: 820px; margin: 20px auto; }
     .invoice h2 { margin-bottom: 6px; }

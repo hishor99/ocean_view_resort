@@ -417,6 +417,86 @@ public class ReservationDAO {
     private String safeGet(ResultSet rs, String col) {
         try { return rs.getString(col); } catch (Exception e) { return null; }
     }
+    
+ // =========================
+ // D) Reservation Details (Search by reservation_no)
+ // =========================
+ public Map<String, Object> findByReservationNo(String reservationNo) throws Exception {
+
+     String sql =
+         "SELECT r.reservation_id, r.reservation_no, r.status, r.created_at, r.confirmed_at, " +
+         "       r.check_in, r.check_out, r.nights, r.guests, r.room_id, r.room_type, " +
+         "       r.food_id, r.vehicle_id, " +
+         "       r.room_total, r.food_total, r.vehicle_total, r.grand_total, " +
+         "       rm.room_number, rm.price_per_night, rm.capacity AS room_capacity, " +
+         "       g.guest_name, g.address AS guest_address, g.phone AS guest_phone, g.email AS guest_email, " +
+         "       fp.name AS food_name, fp.price_per_day AS food_price_per_day, fp.pricing_type AS food_pricing_type, " +
+         "       v.type AS vehicle_type, v.model AS vehicle_model, v.plate_no, v.price_per_day AS vehicle_price_per_day " +
+         "FROM reservations r " +
+         "LEFT JOIN rooms rm ON rm.room_id = r.room_id " +
+         "LEFT JOIN guests g ON g.guest_id = r.guest_id " +
+         "LEFT JOIN food_packages fp ON fp.food_id = r.food_id " +
+         "LEFT JOIN vehicles v ON v.vehicle_id = r.vehicle_id " +
+         "WHERE r.reservation_no = ? " +
+         "LIMIT 1";
+
+     try (Connection conn = DBConnection.getConnection();
+          PreparedStatement ps = conn.prepareStatement(sql)) {
+
+         ps.setString(1, reservationNo);
+
+         try (ResultSet rs = ps.executeQuery()) {
+             if (!rs.next()) return null;
+
+             Map<String, Object> m = new HashMap<>();
+
+             // keep same key style you already use elsewhere
+             m.put("reservationId", rs.getInt("reservation_id"));
+             m.put("reservationNo", rs.getString("reservation_no"));
+             m.put("status", rs.getString("status"));
+             m.put("createdAt", rs.getTimestamp("created_at"));
+             m.put("confirmedAt", rs.getTimestamp("confirmed_at"));
+
+             m.put("checkIn", rs.getDate("check_in"));
+             m.put("checkOut", rs.getDate("check_out"));
+             m.put("nights", rs.getInt("nights"));
+             m.put("guests", rs.getInt("guests"));
+
+             m.put("roomId", rs.getInt("room_id"));
+             m.put("roomType", rs.getString("room_type"));
+             m.put("roomNumber", rs.getString("room_number"));
+             m.put("pricePerNight", rs.getDouble("price_per_night"));
+             m.put("capacity", rs.getInt("room_capacity"));
+
+             // guest info (walk-in from guests table)
+             m.put("guestName", safeGet(rs, "guest_name"));
+             m.put("guestAddress", safeGet(rs, "guest_address"));
+             m.put("guestPhone", safeGet(rs, "guest_phone"));
+             m.put("guestEmail", safeGet(rs, "guest_email"));
+
+             // food
+             m.put("foodId", (Integer) rs.getObject("food_id"));
+             m.put("foodName", rs.getString("food_name"));
+             m.put("foodPricePerDay", rs.getDouble("food_price_per_day"));
+             m.put("foodPricingType", rs.getString("food_pricing_type"));
+
+             // vehicle
+             m.put("vehicleId", (Integer) rs.getObject("vehicle_id"));
+             m.put("vehicleType", rs.getString("vehicle_type"));
+             m.put("vehicleModel", rs.getString("vehicle_model"));
+             m.put("plateNo", rs.getString("plate_no"));
+             m.put("vehiclePricePerDay", rs.getDouble("vehicle_price_per_day"));
+
+             // totals
+             m.put("roomTotal", rs.getDouble("room_total"));
+             m.put("foodTotal", rs.getDouble("food_total"));
+             m.put("vehicleTotal", rs.getDouble("vehicle_total"));
+             m.put("grandTotal", rs.getDouble("grand_total"));
+
+             return m;
+         }
+     }
+ }
 
     // =========================
     // List helper

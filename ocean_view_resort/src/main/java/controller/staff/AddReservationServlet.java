@@ -113,14 +113,19 @@ public class AddReservationServlet extends HttpServlet {
 
                 LocalDate checkIn  = (LocalDate) s.getAttribute("tmp_check_in");
                 LocalDate checkOut = (LocalDate) s.getAttribute("tmp_check_out");
-                Integer guests     = (Integer) s.getAttribute("tmp_guests");
+                Integer guestsObj  = (Integer) s.getAttribute("tmp_guests");
+
+                if (fullName == null || phone == null || checkIn == null || checkOut == null || guestsObj == null) {
+                    throw new Exception("Session expired. Please start reservation again.");
+                }
+
+                int guests = guestsObj; // safe unboxing
 
                 String roomIdStr = safe(req.getParameter("room_id"));
                 if (roomIdStr.isEmpty()) throw new Exception("Please select a room.");
 
                 int roomId = Integer.parseInt(roomIdStr);
 
-                // NEW ADD-ONS
                 String foodIdStr = safe(req.getParameter("food_id"));
                 String vehicleIdStr = safe(req.getParameter("vehicle_id"));
 
