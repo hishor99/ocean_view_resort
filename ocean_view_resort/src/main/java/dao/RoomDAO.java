@@ -143,6 +143,48 @@ public class RoomDAO {
         return list;
     }
 
+    // ✅ NEW (MERGED) - used by AvailableRoomsServlet
+    // filter by roomType + date overlap availability
+    // roomType can be null/blank => return all types
+    public List<Room> getAvailableRoomsByTypeAndDates(String roomType, LocalDate checkIn, LocalDate checkOut) throws Exception {
+
+        if (checkIn == null || checkOut == null)
+            throw new IllegalArgumentException("Check-in and check-out dates are required");
+        if (!checkOut.isAfter(checkIn))
+            throw new IllegalArgumentException("Check-out must be after check-in");
+
+        String sql =
+                "SELECT r.room_id, r.room_number, r.room_type, r.price_per_night, r.capacity, r.description, r.status " +
+                "FROM rooms r " +
+                "WHERE r.status = 'AVAILABLE' " +
+                "  AND (? IS NULL OR ? = '' OR r.room_type = ?) " +
+                "  AND r.room_id NOT IN ( " +
+                "       SELECT res.room_id FROM reservations res " +
+                "       WHERE res.status IN ('PENDING','CONFIRMED','CHECKED_IN') " +
+                "         AND res.check_in < ? " +
+                "         AND res.check_out > ? " +
+                "  ) " +
+                "ORDER BY r.room_number ASC";
+
+        List<Room> list = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            String type = (roomType == null) ? "" : roomType.trim();
+            ps.setString(1, type);
+            ps.setString(2, type);
+            ps.setString(3, type);
+
+            ps.setDate(4, Date.valueOf(checkOut));
+            ps.setDate(5, Date.valueOf(checkIn));
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRoom(rs));
+            }
+        }
+        return list;
+    }
+
     public Room findById(int roomId) throws Exception {
         String sql = "SELECT room_id, room_number, room_type, price_per_night, capacity, description, status " +
                      "FROM rooms WHERE room_id=? LIMIT 1";
@@ -173,7 +215,6 @@ public class RoomDAO {
     }
 
     // ✅ COMPAT METHOD for UpdateRoomServlet
-    // Matches: updatePriceAndStatus(int roomId, double price, String status, int capacity)
     public boolean updatePriceAndStatus(int roomId, double pricePerNight, String status, int capacity) throws Exception {
 
         if (pricePerNight < 0)
@@ -226,7 +267,7 @@ public class RoomDAO {
         }
     }
 
-    // ✅ Small update method for your table "Save" button (capacity + description + price + status)
+    // ✅ Small update method
     public void updateRoomPricing(int roomId, int capacity, String description,
                                   double pricePerNight, String status) throws Exception {
 

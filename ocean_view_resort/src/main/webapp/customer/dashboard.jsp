@@ -192,7 +192,7 @@
               <p class="action-desc">View your reservation history and status.</p>
             </div>
           </div>
-          <a class="btn" href="<%= request.getContextPath() %>/customer/reservations">Open</a>
+          <a class="btn" href="<%= request.getContextPath() %>/customer/myreservations">Open</a>
         </div>
 
         <!-- Help -->

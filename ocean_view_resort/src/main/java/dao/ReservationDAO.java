@@ -293,6 +293,69 @@ public class ReservationDAO {
          }
      }
  }
+ 
+//=========================
+//Staff: Cancel a PENDING reservation
+//- sets status = CANCELLED
+//- sets cancelled_by, cancelled_at, cancel_reason (if columns exist)
+//=========================
+public boolean cancelReservation(int reservationId, Integer staffUserId, String reason) throws Exception {
+
+  if (reservationId <= 0) throw new IllegalArgumentException("Invalid reservation id");
+
+  Connection conn = null;
+  try {
+      conn = DBConnection.getConnection();
+      conn.setAutoCommit(false);
+
+      // Only cancel PENDING
+      String checkSql = "SELECT status FROM reservations WHERE reservation_id=? LIMIT 1";
+      String status;
+
+      try (PreparedStatement ps = conn.prepareStatement(checkSql)) {
+          ps.setInt(1, reservationId);
+          try (ResultSet rs = ps.executeQuery()) {
+              if (!rs.next()) throw new Exception("Reservation not found.");
+              status = rs.getString("status");
+          }
+      }
+
+      if (status == null || !status.equalsIgnoreCase("PENDING")) {
+          conn.rollback();
+          return false;
+      }
+
+      // ✅ If you have cancel columns, use this SQL:
+      // Make sure your table has: cancelled_by, cancelled_at, cancel_reason
+      String upSql =
+              "UPDATE reservations " +
+              "SET status='CANCELLED', cancelled_by=?, cancelled_at=NOW(), cancel_reason=? " +
+              "WHERE reservation_id=?";
+
+      int updated;
+      try (PreparedStatement ps = conn.prepareStatement(upSql)) {
+          if (staffUserId == null) ps.setNull(1, Types.INTEGER);
+          else ps.setInt(1, staffUserId);
+
+          ps.setString(2, (reason == null || reason.isBlank()) ? "Cancelled by staff" : reason.trim());
+          ps.setInt(3, reservationId);
+
+          updated = ps.executeUpdate();
+      }
+
+      conn.commit();
+      return updated > 0;
+
+  } catch (Exception e) {
+      if (conn != null) conn.rollback();
+      throw e;
+  } finally {
+      if (conn != null) {
+          try { conn.setAutoCommit(true); } catch (Exception ignore) {}
+          try { conn.close(); } catch (Exception ignore) {}
+      }
+  }
+}
 
     // =========================
     // Helpers: Room
@@ -321,6 +384,78 @@ public class ReservationDAO {
             }
         }
     }
+    
+ // =========================
+ // Staff: Update Food / Vehicle and Recalculate totals
+ // =========================
+ public void updateServicesAndRecalculate(int reservationId,
+                                          Integer foodId,
+                                          Integer vehicleId) throws Exception {
+
+     if (reservationId <= 0)
+         throw new IllegalArgumentException("Invalid reservation id");
+
+     Connection conn = null;
+     try {
+         conn = DBConnection.getConnection();
+         conn.setAutoCommit(false);
+
+         // 1) Get current reservation base values
+         String curSql =
+                 "SELECT room_total, nights, guests " +
+                 "FROM reservations WHERE reservation_id=? LIMIT 1";
+
+         double roomTotal;
+         int nights;
+         int guests;
+
+         try (PreparedStatement ps = conn.prepareStatement(curSql)) {
+             ps.setInt(1, reservationId);
+             try (ResultSet rs = ps.executeQuery()) {
+                 if (!rs.next())
+                     throw new Exception("Reservation not found.");
+
+                 roomTotal = rs.getDouble("room_total");
+                 nights = rs.getInt("nights");
+                 guests = rs.getInt("guests");
+             }
+         }
+
+         // 2) Recalculate totals using your existing helper methods
+         double foodTotal = calculateFoodTotal(conn, foodId, guests, nights);
+         double vehicleTotal = calculateVehicleTotal(conn, vehicleId, nights);
+         double grandTotal = roomTotal + foodTotal + vehicleTotal;
+
+         // 3) Update reservation
+         String upSql =
+                 "UPDATE reservations " +
+                 "SET food_id=?, vehicle_id=?, food_total=?, vehicle_total=?, grand_total=? " +
+                 "WHERE reservation_id=?";
+
+         try (PreparedStatement ps = conn.prepareStatement(upSql)) {
+
+             ps.setObject(1, foodId, Types.INTEGER);
+             ps.setObject(2, vehicleId, Types.INTEGER);
+             ps.setDouble(3, foodTotal);
+             ps.setDouble(4, vehicleTotal);
+             ps.setDouble(5, grandTotal);
+             ps.setInt(6, reservationId);
+
+             ps.executeUpdate();
+         }
+
+         conn.commit();
+
+     } catch (Exception e) {
+         if (conn != null) conn.rollback();
+         throw e;
+     } finally {
+         if (conn != null) {
+             try { conn.setAutoCommit(true); } catch (Exception ignore) {}
+             try { conn.close(); } catch (Exception ignore) {}
+         }
+     }
+ }
 
     // =========================
     // Helpers: Food + Vehicle totals
@@ -601,6 +736,24 @@ public class ReservationDAO {
         }
         return list;
     }
+    
+ // =========================
+ // Customer: My Reservations list
+ // =========================
+ public List<Map<String, Object>> getReservationsByCustomer(int customerId) throws Exception {
+
+     String sql =
+             "SELECT r.reservation_id, r.reservation_no, r.customer_id, r.guest_id, r.room_id, " +
+             "       r.check_in, r.check_out, r.nights, r.guests, " +
+             "       r.grand_total, r.status, r.created_at, " +
+             "       rm.room_number, rm.room_type " +
+             "FROM reservations r " +
+             "JOIN rooms rm ON rm.room_id = r.room_id " +
+             "WHERE r.customer_id = ? " +
+             "ORDER BY r.created_at DESC";
+
+     return fetchReservationList(sql, ps -> ps.setInt(1, customerId));
+ }
 
     // =========================
     // REPORTS (Manager Graphs)

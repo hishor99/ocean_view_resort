@@ -1,7 +1,7 @@
 package controller.staff;
 
 import dao.RoomDAO;
-
+import model.Room;
 
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -30,25 +30,28 @@ public class AvailableRoomsServlet extends HttpServlet {
 
             for (int i = 0; i < rooms.size(); i++) {
                 Room r = rooms.get(i);
+
                 json.append("{")
                         .append("\"roomId\":").append(r.getRoomId()).append(",")
                         .append("\"roomNumber\":\"").append(escape(r.getRoomNumber())).append("\",")
                         .append("\"price\":").append(r.getPricePerNight()).append(",")
                         .append("\"capacity\":").append(r.getCapacity())
                         .append("}");
+
                 if (i < rooms.size() - 1) json.append(",");
             }
 
             json.append("]");
             resp.getWriter().write(json.toString());
 
-        } catch (Exception ex) {
+        } catch (Exception e) {
             resp.setStatus(400);
-            resp.getWriter().write("[]");
+            resp.getWriter().write("{\"error\":\"" + escape(e.getMessage()) + "\"}");
         }
     }
 
     private String escape(String s) {
-        return s == null ? "" : s.replace("\"", "\\\"");
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

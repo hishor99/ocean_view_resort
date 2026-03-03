@@ -1,6 +1,8 @@
 package dao;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +40,7 @@ public class FoodPackageDAO {
         return findAll();
     }
 
-    // ✅ Main method you already had (ACTIVE only) - for Customer/Reservation pages
+    // ✅ ACTIVE only - for Customer/Reservation pages
     public List<FoodPackage> getActivePackages() throws Exception {
         String sql = "SELECT food_id, name, price_per_day, pricing_type, is_active, description " +
                      "FROM food_packages WHERE is_active = 1 ORDER BY name";
@@ -68,7 +70,7 @@ public class FoodPackageDAO {
         return getActivePackages();
     }
 
-    // ✅ Find one package by id (keep this)
+    // ✅ Find one package by id
     public FoodPackage findById(int foodId) throws Exception {
         String sql = "SELECT food_id, name, price_per_day, pricing_type, is_active, description " +
                      "FROM food_packages WHERE food_id = ? LIMIT 1";
@@ -92,5 +94,52 @@ public class FoodPackageDAO {
             }
         }
         return null;
+    }
+
+    // ✅ Insert new food package (Manager)
+    public void insert(String name, double pricePerDay, String pricingType, boolean active, String description) throws Exception {
+
+        if (name == null || name.isBlank()) throw new Exception("Food package name is required.");
+        if (pricingType == null || pricingType.isBlank()) pricingType = "PER_ROOM_PER_DAY";
+
+        String sql = "INSERT INTO food_packages (name, price_per_day, pricing_type, is_active, description) " +
+                     "VALUES (?, ?, ?, ?, ?)";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, name.trim());
+            ps.setDouble(2, pricePerDay);
+            ps.setString(3, pricingType.trim());
+            ps.setInt(4, active ? 1 : 0);
+            ps.setString(5, (description == null || description.isBlank()) ? null : description.trim());
+
+            ps.executeUpdate();
+        }
+    }
+
+    // ✅ Update existing food package (Manager)
+    public void update(int foodId, String name, double pricePerDay, String pricingType, boolean active, String description) throws Exception {
+
+        if (foodId <= 0) throw new Exception("Invalid food_id.");
+        if (name == null || name.isBlank()) throw new Exception("Food package name is required.");
+        if (pricingType == null || pricingType.isBlank()) pricingType = "PER_ROOM_PER_DAY";
+
+        String sql = "UPDATE food_packages " +
+                     "SET name=?, price_per_day=?, pricing_type=?, is_active=?, description=? " +
+                     "WHERE food_id=?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, name.trim());
+            ps.setDouble(2, pricePerDay);
+            ps.setString(3, pricingType.trim());
+            ps.setInt(4, active ? 1 : 0);
+            ps.setString(5, (description == null || description.isBlank()) ? null : description.trim());
+            ps.setInt(6, foodId);
+
+            ps.executeUpdate();
+        }
     }
 }

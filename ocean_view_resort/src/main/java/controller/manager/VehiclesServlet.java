@@ -16,6 +16,19 @@ public class VehiclesServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         try {
+            HttpSession session = req.getSession(false);
+
+            // ✅ optional security
+            if (session == null || session.getAttribute("user_id") == null) {
+                resp.sendRedirect(req.getContextPath() + "/auth/login.jsp");
+                return;
+            }
+            String role = (String) session.getAttribute("role");
+            if (role != null && !role.equalsIgnoreCase("MANAGER")) {
+                resp.sendRedirect(req.getContextPath() + "/auth/login.jsp");
+                return;
+            }
+
             VehicleDAO dao = new VehicleDAO();
 
             String editId = req.getParameter("edit");
@@ -26,23 +39,47 @@ public class VehiclesServlet extends HttpServlet {
 
             List<Vehicle> list = dao.findAll();
             req.setAttribute("vehicles", list);
+
             req.getRequestDispatcher("/manager/vehicles.jsp").forward(req, resp);
+
         } catch (Exception e) {
-            throw new ServletException(e);
+            throw new ServletException("Failed to load vehicles", e);
         }
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         try {
+            HttpSession session = req.getSession(false);
+
+            // ✅ optional security
+            if (session == null || session.getAttribute("user_id") == null) {
+                resp.sendRedirect(req.getContextPath() + "/auth/login.jsp");
+                return;
+            }
+            String role = (String) session.getAttribute("role");
+            if (role != null && !role.equalsIgnoreCase("MANAGER")) {
+                resp.sendRedirect(req.getContextPath() + "/auth/login.jsp");
+                return;
+            }
+
             VehicleDAO dao = new VehicleDAO();
 
             String idStr = req.getParameter("vehicle_id");
             String type = req.getParameter("type");
             String model = req.getParameter("model");
             String plate = req.getParameter("plate_no");
-            double price = Double.parseDouble(req.getParameter("price_per_day"));
-            int capacity = Integer.parseInt(req.getParameter("capacity"));
+
+            String priceStr = req.getParameter("price_per_day");
+            String capStr = req.getParameter("capacity");
+
+            if (type == null || type.isBlank()) throw new Exception("Vehicle type is required.");
+            if (priceStr == null || priceStr.isBlank()) throw new Exception("Price per day is required.");
+            if (capStr == null || capStr.isBlank()) throw new Exception("Capacity is required.");
+
+            double price = Double.parseDouble(priceStr);
+            int capacity = Integer.parseInt(capStr);
+
             boolean active = "1".equals(req.getParameter("is_active"));
             String notes = req.getParameter("notes");
 
@@ -53,8 +90,9 @@ public class VehiclesServlet extends HttpServlet {
             }
 
             resp.sendRedirect(req.getContextPath() + "/manager/vehicles");
+
         } catch (Exception e) {
-            throw new ServletException(e);
+            throw new ServletException("Failed to save vehicle", e);
         }
     }
 }
