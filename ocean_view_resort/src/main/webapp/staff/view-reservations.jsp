@@ -29,6 +29,7 @@
     <%
       List<Map<String,Object>> reservations =
           (List<Map<String,Object>>) request.getAttribute("reservations");
+
       if (reservations == null || reservations.isEmpty()) {
     %>
       <p class="muted">No pending reservations found.</p>
@@ -54,29 +55,34 @@
       %>
         <tr>
           <td>#<%= r.get("reservationId") %></td>
-          <td><b><%= r.get("roomNumber") %></b> <span class="muted">(<%= r.get("roomType") %>)</span></td>
+          <td><b><%= r.get("roomNumber") %></b> (<%= r.get("roomType") %>)</td>
           <td><%= r.get("checkIn") %></td>
           <td><%= r.get("checkOut") %></td>
           <td><%= r.get("guests") %></td>
           <td>Rs. <%= r.get("grandTotal") %></td>
-          <td class="actions">
+          <td>
 
             <!-- Confirm -->
-            <form method="post" action="<%= request.getContextPath() %>/staff/confirm-reservation" class="inline">
+            <form method="post"
+                  action="<%= request.getContextPath() %>/staff/confirm-reservation"
+                  class="inline">
               <input type="hidden" name="id" value="<%= r.get("reservationId") %>">
               <button class="btn success" type="submit">Confirm</button>
             </form>
 
             <!-- Cancel -->
-            <form method="post" action="<%= request.getContextPath() %>/staff/cancel-reservation" class="inline"
+            <form method="post"
+                  action="<%= request.getContextPath() %>/staff/cancel-reservation"
+                  class="inline"
                   onsubmit="return confirm('Cancel this reservation?');">
               <input type="hidden" name="id" value="<%= r.get("reservationId") %>">
               <input type="text" name="reason" placeholder="Reason" class="input-sm">
               <button class="btn danger" type="submit">Cancel</button>
             </form>
 
-            <!-- Print (invoice page) -->
-            <a class="btn" target="_blank"
+            <!-- Print -->
+            <a class="btn"
+               target="_blank"
                href="<%= request.getContextPath() %>/staff/reservation-invoice?id=<%= r.get("reservationId") %>">
               Print
             </a>

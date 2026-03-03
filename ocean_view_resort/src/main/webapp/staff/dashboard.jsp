@@ -130,7 +130,7 @@
         <div>
           <h3>Pending Reservations</h3>
           <p>View new reservation requests and confirm or cancel quickly.</p>
-          <a class="btn-link btn-primary" href="<%= request.getContextPath() %>/staff/reservations">
+          <a class="btn-link btn-primary" href="<%= request.getContextPath() %>/staff/view-reservations">
             Open Pending List →
           </a>
         </div>

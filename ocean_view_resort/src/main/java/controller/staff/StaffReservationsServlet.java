@@ -2,7 +2,10 @@ package controller.staff;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
 import java.util.List;
@@ -10,7 +13,7 @@ import java.util.Map;
 
 import dao.ReservationDAO;
 
-@WebServlet("/staff/reservations")
+@WebServlet("/staff/view-reservations") // URL: /ocean_view_resort/staff/reservations
 public class StaffReservationsServlet extends HttpServlet {
     private final ReservationDAO reservationDAO = new ReservationDAO();
 
@@ -34,7 +37,9 @@ public class StaffReservationsServlet extends HttpServlet {
             if (msg != null) { request.setAttribute("success", msg); session.removeAttribute("flash_success"); }
             if (err != null) { request.setAttribute("error", err); session.removeAttribute("flash_error"); }
 
+            // ✅ This matches: /webapp/staff/view-reservations.jsp
             request.getRequestDispatcher("/staff/view-reservations.jsp").forward(request, response);
+
         } catch (Exception e) {
             throw new ServletException("Failed to load pending reservations", e);
         }

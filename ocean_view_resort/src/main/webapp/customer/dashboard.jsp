@@ -209,7 +209,7 @@
               <p class="action-desc">FAQ and contact details.</p>
             </div>
           </div>
-          <a class="btn" href="<%= request.getContextPath() %>/help.jsp">Open</a>
+          <a class="btn" href="<%= request.getContextPath() %>/customer/help.jsp">Open</a>
         </div>
 
       </div>

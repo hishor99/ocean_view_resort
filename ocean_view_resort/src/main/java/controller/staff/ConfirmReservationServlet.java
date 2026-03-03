@@ -13,58 +13,65 @@ public class ConfirmReservationServlet extends HttpServlet {
 
     private final ReservationDAO reservationDAO = new ReservationDAO();
 
+    private Integer toInt(Object v) {
+        if (v == null) return null;
+        if (v instanceof Integer) return (Integer) v;
+        if (v instanceof String) {
+            try { return Integer.parseInt(((String) v).trim()); }
+            catch (Exception ignore) { return null; }
+        }
+        return null;
+    }
+
+    private boolean isStaffRole(String role) {
+        if (role == null) return false;
+        return role.equalsIgnoreCase("STAFF")
+                || role.equalsIgnoreCase("RECEPTION_STAFF")
+                || role.equalsIgnoreCase("RECEPTION");
+    }
+
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        // ✅ Get existing session only
         HttpSession session = request.getSession(false);
 
-        // ✅ Check staff login
-        Integer staffId = (session == null) ? null : (Integer) session.getAttribute("user_id");
+        Integer staffId = (session == null) ? null : toInt(session.getAttribute("user_id"));
         String role = (session == null) ? null : (String) session.getAttribute("role");
 
-        if (staffId == null || role == null || !"STAFF".equalsIgnoreCase(role)) {
-            // No session / not staff -> go login
+        // DEBUG (check Tomcat console)
+        System.out.println("[CONFIRM] session=" + (session != null)
+                + " user_id=" + staffId + " role=" + role);
+
+        if (staffId == null || !isStaffRole(role)) {
+            // keep a helpful message too
+            if (session != null) session.setAttribute("flash_error", "Session/role invalid. Please login again.");
             response.sendRedirect(request.getContextPath() + "/auth/login.jsp");
             return;
         }
 
-        // ✅ Validate reservation ID
-        String idParam = request.getParameter("id");
-        if (idParam == null || idParam.isBlank()) {
-            session.setAttribute("flash_error", "Confirm failed: Reservation ID is missing.");
-            response.sendRedirect(request.getContextPath() + "/staff/reservations");
-            return;
-        }
-
+        // reservation id
         int reservationId;
         try {
-            reservationId = Integer.parseInt(idParam);
-            if (reservationId <= 0) throw new NumberFormatException("ID must be positive");
-        } catch (NumberFormatException nfe) {
-            session.setAttribute("flash_error", "Confirm failed: Invalid reservation ID.");
-            response.sendRedirect(request.getContextPath() + "/staff/reservations");
+            reservationId = Integer.parseInt(request.getParameter("id"));
+        } catch (Exception e) {
+            session.setAttribute("flash_error", "Invalid reservation id.");
+            response.sendRedirect(request.getContextPath() + "/staff/view-reservations");
             return;
         }
 
         try {
-            // ✅ Confirm in DB (transaction)
-            reservationDAO.confirmReservation(reservationId, staffId);
+            boolean ok = reservationDAO.confirmReservation(reservationId, staffId);
 
-            session.setAttribute("flash_success", "Reservation confirmed successfully!");
-            response.sendRedirect(request.getContextPath() + "/staff/reservations");
+            if (ok) session.setAttribute("flash_success", "Reservation confirmed successfully!");
+            else session.setAttribute("flash_error", "Cannot confirm. It may not be PENDING anymore.");
+
+            response.sendRedirect(request.getContextPath() + "/staff/view-reservations");
 
         } catch (Exception e) {
-            // ✅ Print FULL error in server console (Eclipse)
             e.printStackTrace();
-
-            // ✅ More helpful message for UI
-            String msg = e.getMessage();
-            if (msg == null || msg.isBlank()) msg = "Unknown error occurred while confirming reservation.";
-
-            session.setAttribute("flash_error", "Confirm failed: " + msg);
-            response.sendRedirect(request.getContextPath() + "/staff/reservations");
+            session.setAttribute("flash_error", "Confirm failed: " + e.getMessage());
+            response.sendRedirect(request.getContextPath() + "/staff/view-reservations");
         }
     }
 }
