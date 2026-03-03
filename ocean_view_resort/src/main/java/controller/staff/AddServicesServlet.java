@@ -1,6 +1,5 @@
 package controller.staff;
 
-import model.Room;
 import dao.FoodPackageDAO;
 import dao.VehicleDAO;
 import dao.ReservationDAO;
