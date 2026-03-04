@@ -129,7 +129,7 @@
         <span class="badge">Insights</span>
       </div>
       <p>Track reservations, staff activities, and system usage.</p>
-      <a href="<%= request.getContextPath() %>/manager/reports">View Reports</a>
+      <a href="<%=request.getContextPath()%>/manager/reports.jsp">View Reports</a>
     </div>
 
   </div>
