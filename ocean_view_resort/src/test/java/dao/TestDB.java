@@ -6,7 +6,7 @@ public final class TestDB {
 
     private TestDB() {}
 
-    /** Ensures DB is reachable. Fails fast if DB not running / wrong config. */
+  
     public static void assertDbConnectionWorks() throws Exception {
         try (Connection c = DBConnection.getConnection()) {
             if (c == null || c.isClosed()) {
@@ -15,7 +15,6 @@ public final class TestDB {
         }
     }
 
-    /** Get any ID from a table (used when you already have seed data). */
     public static Integer getAnyId(String table, String idCol) throws Exception {
         String sql = "SELECT " + idCol + " FROM " + table + " ORDER BY " + idCol + " ASC LIMIT 1";
         try (Connection c = DBConnection.getConnection();
@@ -28,6 +27,9 @@ public final class TestDB {
     }
 
     /** Get any CUSTOMER user_id (recommended for reservation tests). */
+    
+    
+    
     public static Integer getAnyCustomerId() throws Exception {
         // If your role values differ, change 'CUSTOMER'
         String sql = "SELECT user_id FROM users WHERE role='CUSTOMER' ORDER BY user_id ASC LIMIT 1";
