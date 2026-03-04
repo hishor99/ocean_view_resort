@@ -311,7 +311,7 @@
             <h3>Standard Room</h3>
             <p>Comfortable room for couples or solo travelers with essential facilities.</p>
             <div class="row">
-              <div class="price">From LKR 18,000 / night</div>
+              <div class="price">From LKR 12,000 / night</div>
               <a class="ghost" href="<%=request.getContextPath()%>/customer/quotation">Get Quote</a>
             </div>
           </div>
@@ -324,7 +324,7 @@
             <h3>Deluxe Room</h3>
             <p>Sea-facing balcony, premium interior, perfect for a relaxing holiday.</p>
             <div class="row">
-              <div class="price">From LKR 25,000 / night</div>
+              <div class="price">From LKR 15,000 / night</div>
               <a class="ghost" href="<%=request.getContextPath()%>/customer/quotation">Get Quote</a>
             </div>
           </div>
@@ -337,7 +337,7 @@
             <h3>Suite Room</h3>
             <p>Spacious suite with living area, best for families and long stays.</p>
             <div class="row">
-              <div class="price">From LKR 38,000 / night</div>
+              <div class="price">From LKR 17,500 / night</div>
               <a class="ghost" href="<%=request.getContextPath()%>/customer/quotation">Get Quote</a>
             </div>
           </div>
